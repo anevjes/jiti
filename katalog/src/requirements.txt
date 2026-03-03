@@ -1,0 +1,10 @@
+# katalog/src dependencies
+# (install from repo root: pip install -r katalog/src/requirements.txt)
+
+openai
+azure-identity
+python-dotenv
+
+# Document conversion
+mammoth          # DOCX → Markdown
+pdfplumber       # PDF  → text/Markdown

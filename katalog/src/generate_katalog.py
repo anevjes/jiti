@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""
+generate_katalog.py  –  main entry-point
+-----------------------------------------
+Walk ``katalog/apis/``, convert docs → markdown, gather swagger contracts,
+and call Azure OpenAI to produce:
+
+  • ``<api>/output/data_model.md``      – Data Model specification
+  • ``<api>/output/api_contract.md``    – SDK Proxy API Contract
+
+Usage
+-----
+    cd katalog/src
+    python generate_katalog.py                     # process all APIs
+    python generate_katalog.py --api api1          # process only api1
+    python generate_katalog.py --skip-convert      # skip doc conversion step
+    python generate_katalog.py --dry-run           # build prompts but don't call OpenAI
+"""
+
+import argparse
+import logging
+import sys
+from pathlib import Path
+
+# Local helpers
+from doc_converter import walk_and_convert, convert_docs_for_api
+from aoai_client import generate
+from prompts import data_model_prompts, api_contract_prompts
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+KATALOG_ROOT = Path(__file__).resolve().parent.parent        # katalog/
+APIS_ROOT = KATALOG_ROOT / "apis"                            # katalog/apis/
+
+log = logging.getLogger("katalog")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _read_swagger(api_dir: Path) -> str:
+    """Read the first swagger / OpenAPI file found under api_dir/contracts/."""
+    contracts_dir = api_dir / "contracts"
+    if not contracts_dir.exists():
+        return ""
+
+    # Look for common swagger file names / extensions
+    for pattern in ("*.json", "*.yaml", "*.yml", "swagger*", "openapi*", "*"):
+        for f in sorted(contracts_dir.glob(pattern)):
+            if f.is_file() and f.stat().st_size > 0:
+                log.info("  Using swagger file: %s", f.name)
+                return f.read_text(encoding="utf-8", errors="replace")
+
+    # Fallback: try every file in contracts/
+    for f in sorted(contracts_dir.iterdir()):
+        if f.is_file() and f.stat().st_size > 0:
+            return f.read_text(encoding="utf-8", errors="replace")
+
+    log.warning("  No non-empty swagger file found in %s", contracts_dir)
+    return ""
+
+
+def _read_md_docs(api_dir: Path) -> str:
+    """Concatenate all markdown files in api_dir/docs/md/ into one string."""
+    md_dir = api_dir / "docs" / "md"
+    if not md_dir.exists():
+        return "(no supplementary docs available)"
+
+    parts: list[str] = []
+    for md_file in sorted(md_dir.glob("*.md")):
+        parts.append(f"### {md_file.stem}\n\n{md_file.read_text(encoding='utf-8')}")
+    return "\n\n---\n\n".join(parts) if parts else "(no supplementary docs available)"
+
+
+def _write_output(api_dir: Path, filename: str, content: str) -> Path:
+    """Write *content* to api_dir/output/<filename> and return the path."""
+    out_dir = api_dir / "output"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / filename
+    out_path.write_text(content, encoding="utf-8")
+    log.info("  ✓ Wrote %s", out_path)
+    return out_path
+
+
+# ---------------------------------------------------------------------------
+# Per-API pipeline
+# ---------------------------------------------------------------------------
+
+def process_api(api_dir: Path, *, skip_convert: bool = False, dry_run: bool = False) -> None:
+    """Run the full pipeline for one API directory."""
+    api_name = api_dir.name
+    log.info("=" * 60)
+    log.info("Processing API: %s", api_name)
+    log.info("=" * 60)
+
+    # 1. Convert docs (docx/pdf → md)
+    if not skip_convert:
+        log.info("[1/4] Converting docs …")
+        convert_docs_for_api(api_dir)
+    else:
+        log.info("[1/4] Skipping doc conversion (--skip-convert)")
+
+    # 2. Gather inputs
+    log.info("[2/4] Gathering swagger + docs …")
+    swagger_text = _read_swagger(api_dir)
+    docs_md = _read_md_docs(api_dir)
+
+    if not swagger_text and docs_md == "(no supplementary docs available)":
+        log.warning("  No swagger and no docs found for %s — skipping generation.", api_name)
+        return
+
+    # 3. Generate Data Model
+    log.info("[3/4] Generating Data Model …")
+    sys_dm, usr_dm = data_model_prompts(api_name, swagger_text, docs_md)
+    if dry_run:
+        log.info("  [dry-run] Would call Azure OpenAI for Data Model")
+        _write_output(api_dir, "data_model_prompt_PREVIEW.md", f"# SYSTEM\n\n{sys_dm}\n\n# USER\n\n{usr_dm}")
+    else:
+        dm_result = generate(sys_dm, usr_dm)
+        _write_output(api_dir, "data_model.md", dm_result)
+
+    # 4. Generate SDK Proxy API Contract
+    log.info("[4/4] Generating SDK Proxy API Contract …")
+    sys_ac, usr_ac = api_contract_prompts(api_name, swagger_text, docs_md)
+    if dry_run:
+        log.info("  [dry-run] Would call Azure OpenAI for API Contract")
+        _write_output(api_dir, "api_contract_prompt_PREVIEW.md", f"# SYSTEM\n\n{sys_ac}\n\n# USER\n\n{usr_ac}")
+    else:
+        ac_result = generate(sys_ac, usr_ac)
+        _write_output(api_dir, "api_contract.md", ac_result)
+
+    log.info("Done with %s.\n", api_name)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Generate Data Model & API Contract docs for each API in katalog/apis/"
+    )
+    parser.add_argument(
+        "--api",
+        type=str,
+        default=None,
+        help="Process only this API folder name (e.g. api1). Default: all.",
+    )
+    parser.add_argument(
+        "--skip-convert",
+        action="store_true",
+        help="Skip the DOCX/PDF → Markdown conversion step.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Build prompts and write them to output/ but do NOT call Azure OpenAI.",
+    )
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable DEBUG-level logging.",
+    )
+    args = parser.parse_args()
+
+    # Logging
+    level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    if not APIS_ROOT.exists():
+        log.error("APIs root not found: %s", APIS_ROOT)
+        sys.exit(1)
+
+    # Determine which APIs to process
+    if args.api:
+        target = APIS_ROOT / args.api
+        if not target.is_dir():
+            log.error("API directory not found: %s", target)
+            sys.exit(1)
+        api_dirs = [target]
+    else:
+        api_dirs = sorted(d for d in APIS_ROOT.iterdir() if d.is_dir())
+
+    if not api_dirs:
+        log.warning("No API directories found under %s", APIS_ROOT)
+        sys.exit(0)
+
+    log.info("Found %d API(s) to process: %s", len(api_dirs), [d.name for d in api_dirs])
+
+    for api_dir in api_dirs:
+        process_api(api_dir, skip_convert=args.skip_convert, dry_run=args.dry_run)
+
+    log.info("All done.")
+
+
+if __name__ == "__main__":
+    main()

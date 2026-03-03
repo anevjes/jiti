@@ -1,0 +1,63 @@
+[
+  {
+    "api_name": "OpenMeteoWeather",
+    "description": "Free weather API for non-commercial use. No API key required.",
+    "base_url": "https://api.open-mateo.com/v1",
+    "auth_method": "None",
+    "endpoints": [
+      {
+        "path": "/forecast",
+        "method": "GET",
+        "description": "Get weather forecast for a specific location using latitude and longitude.",
+        "parameters": [
+          { "name": "latitude", "type": "number", "required": true, "description": "Latitude of the location" },
+          { "name": "longitude", "type": "number", "required": true, "description": "Longitude of the location" },
+          { "name": "current_weather", "type": "boolean", "required": false, "description": "Include current weather conditions", "default": true }
+        ],
+        "example_response": { "latitude": 52.52, "longitude": 13.41, "current_weather": { "temperature": 15.3, "windspeed": 10.5 } }
+      }
+    ]
+  },
+  {
+    "api_name": "CoinGecko",
+    "description": "Cryptocurrency market data. Basic endpoints are public.",
+    "base_url": "https://api.coingecko.com/api/v3",
+    "auth_method": "None",
+    "endpoints": [
+      {
+        "path": "/simple/price",
+        "method": "GET",
+        "description": "Get the current price of any cryptocurrencies in any other supported currencies that you need.",
+        "parameters": [
+          { "name": "ids", "type": "string", "required": true, "description": "The id of the coin (e.g., 'bitcoin,ethereum')" },
+          { "name": "vs_currencies", "type": "string", "required": true, "description": "The target currency of market data (e.g., 'usd,eur')" }
+        ],
+        "example_response": { "bitcoin": { "usd": 50000.00 }, "ethereum": { "usd": 3000.00 } }
+      }
+    ]
+  },
+  {
+    "api_name": "JSONPlaceholder",
+    "description": "Free fake API for testing and prototyping.",
+    "base_url": "https://jsonplaceholder.typicode.com",
+    "auth_method": "None",
+    "endpoints": [
+      {
+        "path": "/users/{id}",
+        "method": "GET",
+        "description": "Get details of a specific fake user.",
+        "parameters": [
+          { "name": "id", "type": "integer", "required": true, "description": "ID of the user to retrieve (1-10)" }
+        ],
+        "example_response": { "id": 1, "name": "Leanne Graham", "username": "Bret", "email": "Sincere@april.biz" }
+      },
+      {
+        "path": "/posts",
+        "method": "GET",
+        "description": "List all fake posts.",
+        "parameters": [],
+        "example_response": [ { "userId": 1, "id": 1, "title": "sunt aut facere...", "body": "quia et suscipit..." } ]
+      }
+    ]
+  }
+]

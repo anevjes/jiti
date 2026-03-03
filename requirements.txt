@@ -1,0 +1,5 @@
+mcp[cli]
+openai
+azure-identity
+requests
+python-dotenv
