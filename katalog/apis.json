@@ -1,0 +1,15 @@
+[
+  {
+    "api_name": "Api1",
+    "description": "Petstore sample API for managing pets, orders, and users.",
+    "base_url": "/api/v3",
+    "auth_method": "OAuth2",
+    "auth_details": {
+      "header_name": "Authorization",
+      "token_env_var": "PETSTORE_OAUTH_TOKEN"
+    },
+    "rate_limit": "unknown",
+    "docs_url": "https://github.com/swagger-api/swagger-petstore",
+    "endpoints": []
+  }
+]

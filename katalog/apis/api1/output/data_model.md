@@ -6,192 +6,168 @@
 ## Entities
 
 ### Pet
-
-Represents an animal in the store, including metadata such as its category, photos, and tags. Pets can be created, updated, retrieved, deleted, and filtered by status or tag.
+Represents an animal in the store, including its metadata, category, images, tags, and status. Used in creation, updates, searches, and retrieval operations.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| id | integer (int64) | no | Unique identifier for the pet. |
+| id | integer int64 | no | Unique identifier for the pet. |
 | name | string | yes | Name of the pet. |
-| category | Category | no | Category the pet belongs to. |
-| photoUrls | array of string | yes | List of photo URLs. |
-| tags | array of Tag | no | Tags associated with the pet. |
-| status | string | no | Pet status in the store. Enum: available, pending, sold. |
+| category | Category | no | The category this pet belongs to. |
+| photoUrls | array[string] | yes | URLs to images of the pet. |
+| tags | array[Tag] | no | Tags associated with the pet. |
+| status | string | no | Pet’s availability in the store: available, pending, sold. |
 
 **Validation rules**:
-- name must be a non‑empty string.
+- name must be a non-empty string.
 - photoUrls must contain at least one item.
-- status must be one of: available, pending, sold.
+- status must be one of available, pending, sold.
 
 ---
 
 ### Category
-
-Represents a grouping for pets such as "Dogs" or "Cats".
+Represents a classification for pets.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| id | integer (int64) | no | Unique category ID. |
-| name | string | no | Category name. |
+| id | integer int64 | no | Unique identifier for the category. |
+| name | string | no | Name of the category. |
 
 ---
 
 ### Tag
-
-Represents labels that can be assigned to pets for filtering.
+A simple label that can be associated with pets.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| id | integer (int64) | no | Tag identifier. |
+| id | integer int64 | no | Tag identifier. |
 | name | string | no | Tag name. |
 
 ---
 
-### ApiResponse
-
-Generic response wrapper used for file upload responses.
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| code | integer (int32) | no | Status or error code. |
-| type | string | no | Type of message. |
-| message | string | no | Additional human‑readable message. |
-
----
-
 ### Order
-
-Represents a purchase order in the store.
+Represents a purchase order placed for a pet.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| id | integer (int64) | no | Order ID. |
-| petId | integer (int64) | no | Identifier of the pet being ordered. |
-| quantity | integer (int32) | no | Quantity ordered. |
-| shipDate | string (date-time) | no | Shipment date. |
-| status | string | no | Order status. Enum: placed, approved, delivered. |
-| complete | boolean | no | Whether the order is complete. |
+| id | integer int64 | no | Order ID. |
+| petId | integer int64 | no | ID of the pet being ordered. |
+| quantity | integer int32 | no | Number of items ordered. |
+| shipDate | string date-time | no | Shipping date. |
+| status | string | no | Order status: placed, approved, delivered. |
+| complete | boolean | no | Indicates if the order is complete. |
 
 **Validation rules**:
-- status must be one of: placed, approved, delivered.
-
-**State transitions** (inferred):
-- placed → approved → delivered.
-
----
-
-### Inventory (inferred runtime entity)
-
-Represents a map of pet status to available inventory counts as returned by `/store/inventory`.
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| <status> | integer | no | Quantity of pets in the given status (dynamic keys). |
+- status must be one of placed, approved, delivered.
+- quantity must be a non-negative integer (inferred).
 
 ---
 
 ### User
-
-Represents an account in the system, with basic personal and authentication fields.
+Represents a user account in the system.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| id | integer (int64) | no | User identifier. |
-| username | string | no | Login username. |
-| firstName | string | no | User’s first name. |
-| lastName | string | no | User’s last name. |
+| id | integer int64 | no | User ID. |
+| username | string | no | Username of the user. |
+| firstName | string | no | First name. |
+| lastName | string | no | Last name. |
 | email | string | no | Email address. |
-| password | string | no | Password in clear text. |
+| password | string | no | Password. |
 | phone | string | no | Phone number. |
-| userStatus | integer (int32) | no | User status code. |
+| userStatus | integer int32 | no | User status code. |
 
 **Validation rules**:
-- email should be a valid email format (inferred).
-- password should not be empty (inferred).
+- email must be a valid email format (inferred).
+- password must be non-empty when used for login (inferred).
+
+---
+
+### ApiResponse
+Generic response model used for upload operations.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| code | integer int32 | no | Status code. |
+| type | string | no | Type indicator. |
+| message | string | no | Human‑readable message. |
+
+---
+
+### Inventory (inferred)
+Returned by GET /store/inventory. Represents a mapping of pet status to inventory count.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| <status> | integer int32 | no | Quantity of pets for a given status. |
 
 ---
 
 ### LoginResponse (inferred)
-
-Response for `/user/login`, consisting of a string token plus rate‑limit headers.
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| token | string | no | Session token returned as response body. |
-| X-Rate-Limit | integer (int32) | no | Calls per hour allowed. |
-| X-Expires-After | string (date-time) | no | UTC expiration timestamp. |
-
----
-
-### UploadFileRequest (inferred)
-
-Binary image upload request for a pet.
+Represents the response to a user login.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| file | binary | no | Image file to upload. |
-| additionalMetadata | string | no | Additional metadata for the image upload. |
+| token | string | no | Login token returned as plain string in response body. |
+| X-Rate-Limit | integer int32 | no | Calls per hour allowed (response header). |
+| X-Expires-After | string date-time | no | Token expiration timestamp (response header). |
 
 ---
 
 ## Configuration Files
 
-YAML example representing core schemas:
+Example YAML for entities:
 
-```yaml
+```
 pet:
   id: 10
-  name: doggie
+  name: "doggie"
   category:
     id: 1
-    name: Dogs
+    name: "Dogs"
   photoUrls:
-    - https://example.com/dog1.jpg
+    - "http://example.com/photo1.jpg"
   tags:
-    - id: 100
-      name: friendly
-  status: available
+    - id: 5
+      name: "friendly"
+  status: "available"
 
 order:
-  id: 55
+  id: 100
   petId: 10
   quantity: 2
-  shipDate: "2026-03-03T12:00:00Z"
-  status: approved
+  shipDate: "2026-03-10T12:00:00Z"
+  status: "placed"
   complete: false
 
 user:
-  id: 10
-  username: theUser
-  firstName: John
-  lastName: James
-  email: john@email.com
+  id: 20
+  username: "theUser"
+  firstName: "John"
+  lastName: "James"
+  email: "john@email.com"
   password: "12345"
   phone: "12345"
   userStatus: 1
-
-inventory:
-  available: 20
-  pending: 5
-  sold: 3
 ```
 
-Environment variables (inferred):
+Example `.env` style (inferred for configs):
 
 ```
-API_KEY=your-api-key-here
-OAUTH_AUTH_URL=https://petstore3.swagger.io/oauth/authorize
+API_KEY=your-key-here
+PETSTORE_AUTH_TOKEN=your-oauth-token
 ```
 
 ## Relationships
 
 ```
-Pet ──0:1──▶ Category    (a pet may belong to one category)
-Pet ──0:*──▶ Tag         (a pet may have multiple tags)
+Pet ──1:1──▶ Category        (A pet may belong to one category)
+Pet ──1:N──▶ Tag             (A pet can have multiple tags)
 
-Order ──1:1──▶ Pet       (order references a single pet by petId)
+Order ──1:1──▶ Pet           (Order references one pet via petId)
 
-Inventory ──dynamic──▶ Pet.status   (inventory keys correspond to pet statuses)
+User ──N:1──▶ (System)       (Users exist independently; no direct associations)
 
-User ──independent──▶ (no direct object links in API)
+Inventory ──(map)──▶ Pet     (Inventory keyed by pet status, inferred)
+
+LoginResponse ──1:1──▶ User  (Login response corresponds to login attempt for a user, inferred)
 ```

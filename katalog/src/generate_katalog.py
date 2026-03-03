@@ -7,6 +7,7 @@ and call Azure OpenAI to produce:
 
   • ``<api>/output/data_model.md``      – Data Model specification
   • ``<api>/output/api_contract.md``    – SDK Proxy API Contract
+  • ``katalog/apis.json``               – Central API registry (appended/upserted)
 
 Usage
 -----
@@ -25,7 +26,8 @@ from pathlib import Path
 # Local helpers
 from doc_converter import walk_and_convert, convert_docs_for_api
 from aoai_client import generate
-from prompts import data_model_prompts, api_contract_prompts
+from prompts import data_model_prompts, api_contract_prompts, api_registry_prompts
+from api_registry import load_registry, save_registry, upsert_api, parse_api_json
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -88,7 +90,13 @@ def _write_output(api_dir: Path, filename: str, content: str) -> Path:
 # Per-API pipeline
 # ---------------------------------------------------------------------------
 
-def process_api(api_dir: Path, *, skip_convert: bool = False, dry_run: bool = False) -> None:
+def process_api(
+    api_dir: Path,
+    registry: list[dict],
+    *,
+    skip_convert: bool = False,
+    dry_run: bool = False,
+) -> None:
     """Run the full pipeline for one API directory."""
     api_name = api_dir.name
     log.info("=" * 60)
@@ -97,13 +105,13 @@ def process_api(api_dir: Path, *, skip_convert: bool = False, dry_run: bool = Fa
 
     # 1. Convert docs (docx/pdf → md)
     if not skip_convert:
-        log.info("[1/4] Converting docs …")
+        log.info("[1/5] Converting docs …")
         convert_docs_for_api(api_dir)
     else:
-        log.info("[1/4] Skipping doc conversion (--skip-convert)")
+        log.info("[1/5] Skipping doc conversion (--skip-convert)")
 
     # 2. Gather inputs
-    log.info("[2/4] Gathering swagger + docs …")
+    log.info("[2/5] Gathering swagger + docs …")
     swagger_text = _read_swagger(api_dir)
     docs_md = _read_md_docs(api_dir)
 
@@ -112,7 +120,7 @@ def process_api(api_dir: Path, *, skip_convert: bool = False, dry_run: bool = Fa
         return
 
     # 3. Generate Data Model
-    log.info("[3/4] Generating Data Model …")
+    log.info("[3/5] Generating Data Model …")
     sys_dm, usr_dm = data_model_prompts(api_name, swagger_text, docs_md)
     if dry_run:
         log.info("  [dry-run] Would call Azure OpenAI for Data Model")
@@ -122,7 +130,7 @@ def process_api(api_dir: Path, *, skip_convert: bool = False, dry_run: bool = Fa
         _write_output(api_dir, "data_model.md", dm_result)
 
     # 4. Generate SDK Proxy API Contract
-    log.info("[4/4] Generating SDK Proxy API Contract …")
+    log.info("[4/5] Generating SDK Proxy API Contract …")
     sys_ac, usr_ac = api_contract_prompts(api_name, swagger_text, docs_md)
     if dry_run:
         log.info("  [dry-run] Would call Azure OpenAI for API Contract")
@@ -130,6 +138,24 @@ def process_api(api_dir: Path, *, skip_convert: bool = False, dry_run: bool = Fa
     else:
         ac_result = generate(sys_ac, usr_ac)
         _write_output(api_dir, "api_contract.md", ac_result)
+
+    # 5. Generate / upsert API registry entry (apis.json)
+    log.info("[5/5] Generating API registry entry …")
+    sys_reg, usr_reg = api_registry_prompts(api_name, swagger_text, docs_md)
+    if dry_run:
+        log.info("  [dry-run] Would call Azure OpenAI for API registry entry")
+        _write_output(api_dir, "api_registry_prompt_PREVIEW.md", f"# SYSTEM\n\n{sys_reg}\n\n# USER\n\n{usr_reg}")
+    else:
+        raw_json = generate(sys_reg, usr_reg, temperature=0.0)
+        try:
+            entry = parse_api_json(raw_json)
+            upsert_api(registry, entry)
+            # Also save the per-API copy for reference
+            import json
+            _write_output(api_dir, "api_registry_entry.json", json.dumps(entry, indent=2, ensure_ascii=False))
+        except (ValueError, TypeError) as exc:
+            log.error("  Failed to parse API registry JSON for %s: %s", api_name, exc)
+            _write_output(api_dir, "api_registry_entry_RAW.txt", raw_json)
 
     log.info("Done with %s.\n", api_name)
 
@@ -193,8 +219,19 @@ def main() -> None:
 
     log.info("Found %d API(s) to process: %s", len(api_dirs), [d.name for d in api_dirs])
 
+    # Load the central API registry
+    registry_path = KATALOG_ROOT / "apis.json"
+    registry = load_registry(registry_path)
+
     for api_dir in api_dirs:
-        process_api(api_dir, skip_convert=args.skip_convert, dry_run=args.dry_run)
+        process_api(api_dir, registry, skip_convert=args.skip_convert, dry_run=args.dry_run)
+
+    # Persist the (possibly updated) registry
+    if not args.dry_run:
+        save_registry(registry, registry_path)
+        log.info("Registry saved to %s (%d API(s)).", registry_path, len(registry))
+    else:
+        log.info("[dry-run] Would save registry with %d API(s) to %s", len(registry), registry_path)
 
     log.info("All done.")
 
