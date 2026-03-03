@@ -1,323 +1,568 @@
+Below is your SDK Proxy API Contract, generated strictly from the provided Swagger specification.
+
+---
+
 # SDK Proxy API Contract
 
 **Feature**: api1  
 **Date**: 2026-03-03  
-**Component**: /api1/sdk-proxy
+**Component**: /api/v3
 
 ## Base URL
 
-Local: http://localhost:3000/api1  
-Debug: http://localhost:3000/debug/api1
+Local: http://localhost:8080/api/v3  
+Debug: http://localhost:3000/api/v3
 
 ---
 
 ## Endpoints
 
-(Each endpoint mirrors the provided Petstore OpenAPI contract at `/api/v3/...`.)
-
-Because of the extremely large number of endpoints, and to fit the structure, each API operation is documented below with:
-
-- Title = summary  
-- Method + path  
-- Description  
-- Path/query parameters  
-- Forwarding rules: SDK simply proxies through the request to the upstream Petstore backend  
-- Success / error responses  
-- Example requests/responses  
+Each of the following endpoints must be exposed by the SDK proxy.  
+All requests are forwarded transparently to the destination Petstore API with no request/response transformation unless otherwise noted.
 
 ---
 
-### Update an existing pet
+### Update Existing Pet
 
 ```
 PUT /pet
 ```
 
-Description: Update an existing pet by ID.
+Updates an existing pet by ID (provided inside the body).
 
-Path params: none.
+Path parameters:  
+None.
 
-Request forwarding: Body forwarded verbatim as JSON/XML/form.  
-Response forwarding: Pass-through of upstream body & status code.
+Request forwarding:  
+• Forward body exactly as received (JSON, XML, or form).  
+• Forward authentication headers if supplied.
 
-Success responses:
-- 200: Pet updated (Pet)
+Success response:  
+• 200: Pet object returned.
 
-Error responses:
-- 400: Invalid ID supplied  
-- 404: Pet not found  
-- 422: Validation exception  
-- default: Unexpected error
+Error responses:  
+• 400 Invalid ID supplied  
+• 404 Pet not found  
+• 422 Validation exception  
+• default Unexpected error
 
-Example curl:
+Example cURL:
+
 ```
-curl -X PUT http://localhost:3000/api1/pet \
+curl -X PUT http://localhost:8080/api/v3/pet \
   -H "Content-Type: application/json" \
-  -d '{"id":10,"name":"doggie","photoUrls":["url1"]}'
-```
-
-Example response:
-```
-200 OK
-{"id":10,"name":"doggie","photoUrls":["url1"]}
+  -d '{"id":10,"name":"doggie","photoUrls":["url"],"status":"available"}'
 ```
 
 ---
 
-### Add a new pet to the store
+### Add New Pet
 
 ```
 POST /pet
 ```
 
-Description: Add a new pet.
+Adds a new pet to the store.
 
-Request/response forwarding: direct.
+Path parameters:  
+None.
 
-Success: 200 Pet  
-Errors: 400 invalid input, 422 validation error, default unexpected
+Request forwarding:  
+• Forward body exactly.  
+• Authentication forwarded.
 
-Example curl:
+Success:  
+• 200 Pet object returned.
+
+Errors:  
+• 400 Invalid input  
+• 422 Validation exception  
+• default Unexpected error
+
+Example:
+
 ```
-curl -X POST http://localhost:3000/api1/pet \
+curl -X POST http://localhost:8080/api/v3/pet \
   -H "Content-Type: application/json" \
-  -d '{"name":"newpet","photoUrls":["a"]}'
+  -d '{"name":"doggie","photoUrls":["url"]}'
 ```
 
 ---
 
-### Find pets by status
+### Find Pets by Status
 
 ```
-GET /pet/findByStatus?status={status}
+GET /pet/findByStatus
 ```
 
-Query:
-- status (required) string enum: available, pending, sold
+Returns pets filtered by one or more statuses.
 
-Success: 200 array of Pet  
-Error: 400 invalid status, default unexpected
+Query parameters:  
+• status (required, enum: available, pending, sold)
+
+Example: `?status=available,pending`
+
+Success:  
+• 200 Array of Pet objects.
+
+Errors:  
+• 400 Invalid status value  
+• default Unexpected error
 
 Example:
+
 ```
-curl http://localhost:3000/api1/pet/findByStatus?status=available
+curl http://localhost:8080/api/v3/pet/findByStatus?status=available
 ```
 
 ---
 
-### Find pets by tags
+### Find Pets by Tags
 
 ```
-GET /pet/findByTags?tags={tag1,tag2}
+GET /pet/findByTags
 ```
 
-Query:
-- tags (required) array of string
+Returns pets filtered by tags.
 
-Success: 200 array of Pet  
-Error: 400 invalid tag
+Query parameters:  
+• tags (array, required)
+
+Success:  
+• 200 Array of Pet objects.
+
+Errors:  
+• 400 Invalid tag value  
+• default Unexpected error
 
 Example:
+
 ```
-curl "http://localhost:3000/api1/pet/findByTags?tags=tag1&tags=tag2"
+curl http://localhost:8080/api/v3/pet/findByTags?tags=tag1&tags=tag2
 ```
 
 ---
 
-### Find pet by ID
+### Get Pet by ID
 
 ```
 GET /pet/{petId}
 ```
 
-Path:
-- petId (integer)
+Returns a single pet.
 
-Success: 200 Pet  
-Errors: 400 invalid ID, 404 not found
+Path parameters:  
+• petId (int64, required)
+
+Success:  
+• 200 Pet object.
+
+Errors:  
+• 400 Invalid ID supplied  
+• 404 Pet not found  
+• default Unexpected error
 
 Example:
+
 ```
-curl http://localhost:3000/api1/pet/10
+curl http://localhost:8080/api/v3/pet/10
 ```
 
 ---
 
-### Update pet with form
+### Update Pet With Form
 
 ```
-POST /pet/{petId}?name={name}&status={status}
+POST /pet/{petId}
 ```
 
-Query: name, status optional  
-Path: petId
+Updates basic pet information using form-like parameters in query.
 
-Success: 200 Pet  
-Error: 400 invalid input
+Path parameters:  
+• petId (int64, required)
+
+Query parameters:  
+• name (string)  
+• status (string)
+
+Success:  
+• 200 Pet object
+
+Errors:  
+• 400 Invalid input  
+• default Unexpected error
+
+Example:
+
+```
+curl -X POST "http://localhost:8080/api/v3/pet/10?name=Fluffy&status=available"
+```
 
 ---
 
-### Delete a pet
+### Delete Pet
 
 ```
 DELETE /pet/{petId}
 ```
 
-Headers: optional api_key  
-Path: petId
+Deletes a pet.
 
-Success: 200 Pet deleted  
-Errors: 400 invalid value
+Path parameters:  
+• petId (int64, required)
+
+Headers:  
+• api_key (optional)
+
+Success:  
+• 200 Pet deleted
+
+Errors:  
+• 400 Invalid pet value  
+• default Unexpected error
+
+Example:
+
+```
+curl -X DELETE http://localhost:8080/api/v3/pet/10 -H "api_key: secret"
+```
 
 ---
 
-### Upload pet image
+### Upload Pet Image
 
 ```
 POST /pet/{petId}/uploadImage
 ```
 
-Path: petId  
-Query: additionalMetadata optional  
-Body: binary file
+Uploads a binary image for a pet.
 
-Success: 200 ApiResponse  
-Errors: 400 no file, 404 pet not found
+Path parameters:  
+• petId (int64, required)
+
+Query parameters:  
+• additionalMetadata (string, optional)
+
+Body:  
+• application/octet-stream (binary)
+
+Success:  
+• 200 ApiResponse
+
+Errors:  
+• 400 No file uploaded  
+• 404 Pet not found  
+• default Unexpected error
+
+Example:
+
+```
+curl -X POST http://localhost:8080/api/v3/pet/10/uploadImage \
+  -H "Content-Type: application/octet-stream" \
+  --data-binary "@photo.jpg"
+```
 
 ---
 
-### Get store inventory
+### Get Store Inventory
 
 ```
 GET /store/inventory
 ```
 
-Success: 200 map<string,int>
+Fetches inventory counts by pet status.
+
+Path parameters: none.
+
+Success:  
+• 200 JSON object mapping statuses to integer counts.
+
+Errors:  
+• default Unexpected error
+
+Example:
+
+```
+curl http://localhost:8080/api/v3/store/inventory
+```
 
 ---
 
-### Place order
+### Place Order
 
 ```
 POST /store/order
 ```
 
-Body: Order
+Places an order for a pet.
 
-Success: 200 Order  
-Errors: 400 invalid input, 422 validation
+Body contains Order object.
+
+Success:  
+• 200 Order returned.
+
+Errors:  
+• 400 Invalid input  
+• 422 Validation exception  
+• default Unexpected error
+
+Example:
+
+```
+curl -X POST http://localhost:8080/api/v3/store/order \
+  -H "Content-Type: application/json" \
+  -d '{"petId":198772,"quantity":1}'
+```
 
 ---
 
-### Get order by ID
+### Get Order by ID
 
 ```
 GET /store/order/{orderId}
 ```
 
-Path: orderId
+Retrieves order details.
 
-Success: 200 Order  
-Error: 400 invalid ID, 404 not found
+Path parameters:  
+• orderId (int64, required)
+
+Success:  
+• 200 Order
+
+Errors:  
+• 400 Invalid ID supplied  
+• 404 Order not found  
+• default Unexpected error
+
+Example:
+
+```
+curl http://localhost:8080/api/v3/store/order/5
+```
 
 ---
 
-### Delete order
+### Delete Order
 
 ```
 DELETE /store/order/{orderId}
 ```
 
-Success: 200 order deleted  
-Errors: 400 invalid ID, 404 not found
+Deletes an order.
+
+Path parameters:  
+• orderId (int64, required)
+
+Success:  
+• 200 order deleted
+
+Errors:  
+• 400 Invalid ID supplied  
+• 404 Order not found  
+• default Unexpected error
+
+Example:
+
+```
+curl -X DELETE http://localhost:8080/api/v3/store/order/5
+```
 
 ---
 
-### Create user
+### Create User
 
 ```
 POST /user
 ```
 
-Body: User
+Creates a new user.
 
-Success: 200 User
+Content types supported: JSON, XML, form.
+
+Success:  
+• 200 User object
+
+Errors:  
+• default Unexpected error
+
+Example:
+
+```
+curl -X POST http://localhost:8080/api/v3/user \
+  -H "Content-Type: application/json" \
+  -d '{"username":"theUser","firstName":"John"}'
+```
 
 ---
 
-### Create users with list
+### Create Users with List Input
 
 ```
 POST /user/createWithList
 ```
 
-Body: array<User>
+Creates multiple users.
 
-Success: 200 User
+Body: array of User objects.
+
+Success:  
+• 200 User
+
+Errors:  
+• default Unexpected error
+
+Example:
+
+```
+curl -X POST http://localhost:8080/api/v3/user/createWithList \
+  -H "Content-Type: application/json" \
+  -d '[{"username":"u1"},{"username":"u2"}]'
+```
 
 ---
 
-### Login user
+### Login User
 
 ```
-GET /user/login?username={u}&password={p}
+GET /user/login
 ```
 
-Success: 200 string  
-Headers: X-Rate-Limit, X-Expires-After  
-Error: 400 invalid credentials
+Logs user into the system.
+
+Query parameters:  
+• username (string)  
+• password (string)
+
+Success:  
+• 200 String response  
+• Headers: X-Rate-Limit, X-Expires-After
+
+Errors:  
+• 400 Invalid username/password supplied  
+• default Unexpected error
+
+Example:
+
+```
+curl "http://localhost:8080/api/v3/user/login?username=theUser&password=12345"
+```
 
 ---
 
-### Logout user
+### Logout User
 
 ```
 GET /user/logout
 ```
 
-Success: 200
+Logs out the current session.
+
+Success:  
+• 200 successful operation
+
+Errors:  
+• default Unexpected error
+
+Example:
+
+```
+curl http://localhost:8080/api/v3/user/logout
+```
 
 ---
 
-### Get user by username
+### Get User by Username
 
 ```
 GET /user/{username}
 ```
 
-Success: 200 User  
-Error: 400 invalid username, 404 not found
+Retrieves a user's details.
+
+Path parameters:  
+• username (string, required)
+
+Success:  
+• 200 User
+
+Errors:  
+• 400 Invalid username supplied  
+• 404 User not found  
+• default Unexpected error
+
+Example:
+
+```
+curl http://localhost:8080/api/v3/user/user1
+```
 
 ---
 
-### Update user
+### Update User
 
 ```
 PUT /user/{username}
 ```
 
-Body: User
+Updates an existing user.
 
-Success: 200  
-Error: 400 bad request, 404 not found
+Path parameters:  
+• username (string, required)
+
+Body: User object.
+
+Success:  
+• 200 successful operation
+
+Errors:  
+• 400 bad request  
+• 404 user not found  
+• default Unexpected error
+
+Example:
+
+```
+curl -X PUT http://localhost:8080/api/v3/user/theUser \
+  -H "Content-Type: application/json" \
+  -d '{"firstName":"Jane"}'
+```
 
 ---
 
-### Delete user
+### Delete User
 
 ```
 DELETE /user/{username}
 ```
 
-Success: 200  
-Error: 400 invalid username, 404 not found
+Deletes a user.
+
+Path parameters:  
+• username (string, required)
+
+Success:  
+• 200 User deleted
+
+Errors:  
+• 400 Invalid username  
+• 404 User not found  
+• default Unexpected error
+
+Example:
+
+```
+curl -X DELETE http://localhost:8080/api/v3/user/theUser
+```
 
 ---
 
 ## Orchestrator API Contract
 
-No orchestrator is defined in the supplied documentation.
+No orchestrator is defined in supplied documentation. None included.
 
 ## Mock Destination API Contract
 
-No mock services are defined.
+No mock/demo destinations are defined. None included.
+
+---

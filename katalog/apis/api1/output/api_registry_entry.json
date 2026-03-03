@@ -1,6 +1,6 @@
 {
   "api_name": "Api1",
-  "description": "Petstore sample API for managing pets, orders, and users.",
+  "description": "Swagger Petstore sample API for managing pets, stores, and users.",
   "base_url": "/api/v3",
   "auth_method": "OAuth2",
   "auth_details": {
@@ -9,5 +9,851 @@
   },
   "rate_limit": "unknown",
   "docs_url": "https://github.com/swagger-api/swagger-petstore",
-  "endpoints": []
+  "endpoints": [
+    {
+      "operation_id": "updatePet",
+      "path": "/pet",
+      "method": "PUT",
+      "summary": "Update an existing pet.",
+      "description": "Updates an existing pet by Id. Requires a full Pet object in the request body. Returns the updated Pet object. Edge cases include invalid or missing fields, nonexistent pets, or validation errors.",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [],
+      "request_body": {
+        "content_type": "application/json",
+        "schema_summary": "Pet object with id, name, photoUrls, category, tags, and status.",
+        "example": {
+          "id": 10,
+          "name": "doggie",
+          "photoUrls": [
+            "url1"
+          ],
+          "status": "available"
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Successful operation",
+          "content_type": "application/json",
+          "schema_summary": "Pet object with updated fields.",
+          "example": {
+            "id": 10,
+            "name": "doggie",
+            "photoUrls": [
+              "url1"
+            ],
+            "status": "available"
+          }
+        },
+        "400": {
+          "description": "Invalid ID supplied",
+          "example": {
+            "error": "Invalid ID supplied"
+          }
+        },
+        "404": {
+          "description": "Pet not found",
+          "example": {
+            "error": "Pet not found"
+          }
+        },
+        "422": {
+          "description": "Validation exception",
+          "example": {
+            "error": "Validation exception"
+          }
+        }
+      },
+      "example_curl": "curl -X PUT '/api/v3/pet' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN' -H 'Content-Type: application/json' -d '{\"id\":10,\"name\":\"doggie\",\"photoUrls\":[\"url1\"]}'"
+    },
+    {
+      "operation_id": "addPet",
+      "path": "/pet",
+      "method": "POST",
+      "summary": "Add a new pet.",
+      "description": "Creates a new pet in the store. Requires a Pet object in the request body. Edge cases include missing required fields or invalid structure.",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [],
+      "request_body": {
+        "content_type": "application/json",
+        "schema_summary": "Pet object with name and photoUrls required.",
+        "example": {
+          "name": "newdog",
+          "photoUrls": [
+            "url1"
+          ]
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Successful operation",
+          "content_type": "application/json",
+          "schema_summary": "Pet object created.",
+          "example": {
+            "id": 11,
+            "name": "newdog",
+            "photoUrls": [
+              "url1"
+            ],
+            "status": "available"
+          }
+        },
+        "400": {
+          "description": "Invalid input",
+          "example": {
+            "error": "Invalid input"
+          }
+        },
+        "422": {
+          "description": "Validation exception",
+          "example": {
+            "error": "Validation exception"
+          }
+        }
+      },
+      "example_curl": "curl -X POST '/api/v3/pet' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN' -H 'Content-Type: application/json' -d '{\"name\":\"newdog\",\"photoUrls\":[\"url1\"]}'"
+    },
+    {
+      "operation_id": "findPetsByStatus",
+      "path": "/pet/findByStatus",
+      "method": "GET",
+      "summary": "Find pets by status.",
+      "description": "Returns pets filtered by status. Multiple comma-separated statuses allowed.",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "status",
+          "in": "query",
+          "type": "string",
+          "format": null,
+          "required": true,
+          "description": "Status to filter pets by.",
+          "default": "available",
+          "enum": [
+            "available",
+            "pending",
+            "sold"
+          ],
+          "example": "available"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content_type": "application/json",
+          "schema_summary": "Array of Pet objects.",
+          "example": [
+            {
+              "id": 10,
+              "name": "doggie"
+            }
+          ]
+        },
+        "400": {
+          "description": "Invalid status value",
+          "example": {
+            "error": "Invalid status value"
+          }
+        }
+      },
+      "example_curl": "curl -X GET '/api/v3/pet/findByStatus?status=available' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
+    },
+    {
+      "operation_id": "findPetsByTags",
+      "path": "/pet/findByTags",
+      "method": "GET",
+      "summary": "Find pets by tags.",
+      "description": "Returns pets filtered by tags. Query accepts comma-separated list.",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "tags",
+          "in": "query",
+          "type": "array",
+          "format": null,
+          "required": true,
+          "description": "Tags to filter pets by.",
+          "default": null,
+          "enum": null,
+          "example": "tag1,tag2"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content_type": "application/json",
+          "schema_summary": "Array of Pet objects.",
+          "example": [
+            {
+              "id": 10,
+              "name": "doggie"
+            }
+          ]
+        },
+        "400": {
+          "description": "Invalid tag value",
+          "example": {
+            "error": "Invalid tag value"
+          }
+        }
+      },
+      "example_curl": "curl -X GET '/api/v3/pet/findByTags?tags=tag1,tag2' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
+    },
+    {
+      "operation_id": "getPetById",
+      "path": "/pet/{petId}",
+      "method": "GET",
+      "summary": "Find pet by ID.",
+      "description": "Returns a single pet. Supports authentication via api_key or OAuth2.",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "petId",
+          "in": "path",
+          "type": "integer",
+          "format": "int64",
+          "required": true,
+          "description": "ID of the pet to return.",
+          "default": null,
+          "enum": null,
+          "example": 10
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content_type": "application/json",
+          "schema_summary": "Pet object.",
+          "example": {
+            "id": 10,
+            "name": "doggie"
+          }
+        },
+        "400": {
+          "description": "Invalid ID supplied",
+          "example": {
+            "error": "Invalid ID supplied"
+          }
+        },
+        "404": {
+          "description": "Pet not found",
+          "example": {
+            "error": "Pet not found"
+          }
+        }
+      },
+      "example_curl": "curl -X GET '/api/v3/pet/10' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
+    },
+    {
+      "operation_id": "updatePetWithForm",
+      "path": "/pet/{petId}",
+      "method": "POST",
+      "summary": "Update a pet with form data.",
+      "description": "Updates specific fields of a pet using form data via query parameters.",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "petId",
+          "in": "path",
+          "type": "integer",
+          "format": "int64",
+          "required": true,
+          "description": "Pet ID to update.",
+          "default": null,
+          "enum": null,
+          "example": 10
+        },
+        {
+          "name": "name",
+          "in": "query",
+          "type": "string",
+          "format": null,
+          "required": false,
+          "description": "New name of the pet.",
+          "default": null,
+          "enum": null,
+          "example": "newName"
+        },
+        {
+          "name": "status",
+          "in": "query",
+          "type": "string",
+          "format": null,
+          "required": false,
+          "description": "New status of the pet.",
+          "default": null,
+          "enum": null,
+          "example": "available"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content_type": "application/json",
+          "schema_summary": "Updated Pet object.",
+          "example": {
+            "id": 10,
+            "name": "newName"
+          }
+        },
+        "400": {
+          "description": "Invalid input",
+          "example": {
+            "error": "Invalid input"
+          }
+        }
+      },
+      "example_curl": "curl -X POST '/api/v3/pet/10?name=newName&status=available' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
+    },
+    {
+      "operation_id": "deletePet",
+      "path": "/pet/{petId}",
+      "method": "DELETE",
+      "summary": "Delete a pet.",
+      "description": "Deletes a pet by ID. Optional api_key header may be used.",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "api_key",
+          "in": "header",
+          "type": "string",
+          "format": null,
+          "required": false,
+          "description": "API key for this operation.",
+          "default": null,
+          "enum": null,
+          "example": "abc123"
+        },
+        {
+          "name": "petId",
+          "in": "path",
+          "type": "integer",
+          "format": "int64",
+          "required": true,
+          "description": "Pet ID to delete.",
+          "default": null,
+          "enum": null,
+          "example": 10
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Pet deleted",
+          "example": {
+            "message": "Pet deleted"
+          }
+        },
+        "400": {
+          "description": "Invalid pet value",
+          "example": {
+            "error": "Invalid pet value"
+          }
+        }
+      },
+      "example_curl": "curl -X DELETE '/api/v3/pet/10' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
+    },
+    {
+      "operation_id": "uploadFile",
+      "path": "/pet/{petId}/uploadImage",
+      "method": "POST",
+      "summary": "Upload an image.",
+      "description": "Uploads an image file for a pet. Accepts binary data in request body.",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "petId",
+          "in": "path",
+          "type": "integer",
+          "format": "int64",
+          "required": true,
+          "description": "ID of pet to update.",
+          "default": null,
+          "enum": null,
+          "example": 10
+        },
+        {
+          "name": "additionalMetadata",
+          "in": "query",
+          "type": "string",
+          "format": null,
+          "required": false,
+          "description": "Additional metadata.",
+          "default": null,
+          "enum": null,
+          "example": "metadata"
+        }
+      ],
+      "request_body": {
+        "content_type": "application/octet-stream",
+        "schema_summary": "Binary file payload.",
+        "example": "<binary data>"
+      },
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content_type": "application/json",
+          "schema_summary": "API response object.",
+          "example": {
+            "code": 200,
+            "type": "info",
+            "message": "File uploaded"
+          }
+        },
+        "400": {
+          "description": "No file uploaded",
+          "example": {
+            "error": "No file uploaded"
+          }
+        },
+        "404": {
+          "description": "Pet not found",
+          "example": {
+            "error": "Pet not found"
+          }
+        }
+      },
+      "example_curl": "curl -X POST '/api/v3/pet/10/uploadImage' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN' --data-binary '@/path/to/file.jpg'"
+    },
+    {
+      "operation_id": "getInventory",
+      "path": "/store/inventory",
+      "method": "GET",
+      "summary": "Get pet inventory.",
+      "description": "Returns inventory counts by status.",
+      "tags": [
+        "store"
+      ],
+      "parameters": [],
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content_type": "application/json",
+          "schema_summary": "Object mapping status to counts.",
+          "example": {
+            "available": 5,
+            "pending": 2
+          }
+        }
+      },
+      "example_curl": "curl -X GET '/api/v3/store/inventory' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
+    },
+    {
+      "operation_id": "placeOrder",
+      "path": "/store/order",
+      "method": "POST",
+      "summary": "Place a new order.",
+      "description": "Creates an order for a pet.",
+      "tags": [
+        "store"
+      ],
+      "parameters": [],
+      "request_body": {
+        "content_type": "application/json",
+        "schema_summary": "Order object containing id, petId, quantity, shipDate, status, complete.",
+        "example": {
+          "id": 10,
+          "petId": 100,
+          "quantity": 1
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content_type": "application/json",
+          "schema_summary": "Order object created.",
+          "example": {
+            "id": 10,
+            "petId": 100,
+            "quantity": 1
+          }
+        },
+        "400": {
+          "description": "Invalid input",
+          "example": {
+            "error": "Invalid input"
+          }
+        }
+      },
+      "example_curl": "curl -X POST '/api/v3/store/order' -H 'Content-Type: application/json' -d '{\"petId\":100,\"quantity\":1}'"
+    },
+    {
+      "operation_id": "getOrderById",
+      "path": "/store/order/{orderId}",
+      "method": "GET",
+      "summary": "Get order by ID.",
+      "description": "Returns order if ID <= 5 or > 10. Other values return errors.",
+      "tags": [
+        "store"
+      ],
+      "parameters": [
+        {
+          "name": "orderId",
+          "in": "path",
+          "type": "integer",
+          "format": "int64",
+          "required": true,
+          "description": "Order ID to fetch.",
+          "default": null,
+          "enum": null,
+          "example": 1
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content_type": "application/json",
+          "schema_summary": "Order object.",
+          "example": {
+            "id": 1,
+            "petId": 100,
+            "quantity": 1
+          }
+        },
+        "400": {
+          "description": "Invalid ID supplied",
+          "example": {
+            "error": "Invalid ID supplied"
+          }
+        },
+        "404": {
+          "description": "Order not found",
+          "example": {
+            "error": "Order not found"
+          }
+        }
+      },
+      "example_curl": "curl -X GET '/api/v3/store/order/1'"
+    },
+    {
+      "operation_id": "deleteOrder",
+      "path": "/store/order/{orderId}",
+      "method": "DELETE",
+      "summary": "Delete order.",
+      "description": "Deletes order with ID < 1000.",
+      "tags": [
+        "store"
+      ],
+      "parameters": [
+        {
+          "name": "orderId",
+          "in": "path",
+          "type": "integer",
+          "format": "int64",
+          "required": true,
+          "description": "Order ID to delete.",
+          "default": null,
+          "enum": null,
+          "example": 10
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "order deleted",
+          "example": {
+            "message": "Order deleted"
+          }
+        },
+        "400": {
+          "description": "Invalid ID supplied",
+          "example": {
+            "error": "Invalid ID supplied"
+          }
+        },
+        "404": {
+          "description": "Order not found",
+          "example": {
+            "error": "Order not found"
+          }
+        }
+      },
+      "example_curl": "curl -X DELETE '/api/v3/store/order/10'"
+    },
+    {
+      "operation_id": "createUser",
+      "path": "/user",
+      "method": "POST",
+      "summary": "Create a user.",
+      "description": "Creates a user. Requires a full User object.",
+      "tags": [
+        "user"
+      ],
+      "parameters": [],
+      "request_body": {
+        "content_type": "application/json",
+        "schema_summary": "User object with id, username, firstName, lastName, email, password, phone, userStatus.",
+        "example": {
+          "username": "theUser",
+          "firstName": "John"
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content_type": "application/json",
+          "schema_summary": "User object created.",
+          "example": {
+            "username": "theUser",
+            "firstName": "John"
+          }
+        }
+      },
+      "example_curl": "curl -X POST '/api/v3/user' -H 'Content-Type: application/json' -d '{\"username\":\"theUser\"}'"
+    },
+    {
+      "operation_id": "createUsersWithListInput",
+      "path": "/user/createWithList",
+      "method": "POST",
+      "summary": "Create users from list.",
+      "description": "Creates users from an input array.",
+      "tags": [
+        "user"
+      ],
+      "parameters": [],
+      "request_body": {
+        "content_type": "application/json",
+        "schema_summary": "Array of User objects.",
+        "example": [
+          {
+            "username": "user1"
+          }
+        ]
+      },
+      "responses": {
+        "200": {
+          "description": "Successful operation",
+          "content_type": "application/json",
+          "schema_summary": "User object example response.",
+          "example": {
+            "username": "user1"
+          }
+        }
+      },
+      "example_curl": "curl -X POST '/api/v3/user/createWithList' -H 'Content-Type: application/json' -d '[{\"username\":\"user1\"}]'"
+    },
+    {
+      "operation_id": "loginUser",
+      "path": "/user/login",
+      "method": "GET",
+      "summary": "Log into system.",
+      "description": "Logs user in. Returns a session token string.",
+      "tags": [
+        "user"
+      ],
+      "parameters": [
+        {
+          "name": "username",
+          "in": "query",
+          "type": "string",
+          "format": null,
+          "required": false,
+          "description": "Username for login.",
+          "default": null,
+          "enum": null,
+          "example": "theUser"
+        },
+        {
+          "name": "password",
+          "in": "query",
+          "type": "string",
+          "format": null,
+          "required": false,
+          "description": "Password for login.",
+          "default": null,
+          "enum": null,
+          "example": "pass123"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content_type": "application/json",
+          "schema_summary": "String login token.",
+          "example": "logged in"
+        },
+        "400": {
+          "description": "Invalid username/password supplied",
+          "example": {
+            "error": "Invalid username/password"
+          }
+        }
+      },
+      "example_curl": "curl -X GET '/api/v3/user/login?username=theUser&password=pass123'"
+    },
+    {
+      "operation_id": "logoutUser",
+      "path": "/user/logout",
+      "method": "GET",
+      "summary": "Logout user.",
+      "description": "Logs out current user.",
+      "tags": [
+        "user"
+      ],
+      "parameters": [],
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "example": {
+            "message": "Logged out"
+          }
+        }
+      },
+      "example_curl": "curl -X GET '/api/v3/user/logout'"
+    },
+    {
+      "operation_id": "getUserByName",
+      "path": "/user/{username}",
+      "method": "GET",
+      "summary": "Get user by username.",
+      "description": "Returns user details by username.",
+      "tags": [
+        "user"
+      ],
+      "parameters": [
+        {
+          "name": "username",
+          "in": "path",
+          "type": "string",
+          "format": null,
+          "required": true,
+          "description": "Username to fetch.",
+          "default": null,
+          "enum": null,
+          "example": "user1"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "content_type": "application/json",
+          "schema_summary": "User object.",
+          "example": {
+            "username": "user1"
+          }
+        },
+        "400": {
+          "description": "Invalid username supplied",
+          "example": {
+            "error": "Invalid username"
+          }
+        },
+        "404": {
+          "description": "User not found",
+          "example": {
+            "error": "User not found"
+          }
+        }
+      },
+      "example_curl": "curl -X GET '/api/v3/user/user1'"
+    },
+    {
+      "operation_id": "updateUser",
+      "path": "/user/{username}",
+      "method": "PUT",
+      "summary": "Update user.",
+      "description": "Updates a user by username.",
+      "tags": [
+        "user"
+      ],
+      "parameters": [
+        {
+          "name": "username",
+          "in": "path",
+          "type": "string",
+          "format": null,
+          "required": true,
+          "description": "Username to update.",
+          "default": null,
+          "enum": null,
+          "example": "user1"
+        }
+      ],
+      "request_body": {
+        "content_type": "application/json",
+        "schema_summary": "User object with fields to update.",
+        "example": {
+          "firstName": "NewFirst"
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "successful operation",
+          "example": {
+            "message": "User updated"
+          }
+        },
+        "400": {
+          "description": "bad request",
+          "example": {
+            "error": "Bad request"
+          }
+        },
+        "404": {
+          "description": "user not found",
+          "example": {
+            "error": "User not found"
+          }
+        }
+      },
+      "example_curl": "curl -X PUT '/api/v3/user/user1' -H 'Content-Type: application/json' -d '{\"firstName\":\"NewFirst\"}'"
+    },
+    {
+      "operation_id": "deleteUser",
+      "path": "/user/{username}",
+      "method": "DELETE",
+      "summary": "Delete user.",
+      "description": "Deletes a user by username.",
+      "tags": [
+        "user"
+      ],
+      "parameters": [
+        {
+          "name": "username",
+          "in": "path",
+          "type": "string",
+          "format": null,
+          "required": true,
+          "description": "Username to delete.",
+          "default": null,
+          "enum": null,
+          "example": "user1"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "User deleted",
+          "example": {
+            "message": "User deleted"
+          }
+        },
+        "400": {
+          "description": "Invalid username supplied",
+          "example": {
+            "error": "Invalid username"
+          }
+        },
+        "404": {
+          "description": "User not found",
+          "example": {
+            "error": "User not found"
+          }
+        }
+      },
+      "example_curl": "curl -X DELETE '/api/v3/user/user1'"
+    }
+  ]
 }
