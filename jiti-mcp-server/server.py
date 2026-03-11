@@ -72,15 +72,15 @@ def generate_orchestration_code(user_query: str, api_defs: str) -> str:
     {api_defs}
 
     RULES:
-    1. Only use `requests` library.
+    1. Only use the `requests` library for HTTP calls.
     2. Only generate code for READ (GET) operations. Do not perform POST, PUT, DELETE.
     3. The code must print the final result to stdout in JSON format so it can be captured.
-    4. Handle basic errors (e.g., if a request fails, print the error).
-    5. Mock the API responses if you cannot actually call them (since these are dummy APIs), 
-       BUT write the code AS IF it is calling the real endpoints defined in the JSON.
-       However, for this specific demo, since the URLs are fake (mockweather.com, etc.), 
-       please include a comment block and then simulate the response data structure defined in "example_response" in the JSON.
-    6. Return ONLY the valid Python code block. No markdown fencing (```python).
+    4. Handle errors gracefully (e.g., check response status codes, catch exceptions, print meaningful error messages).
+    5. Generate code that calls the REAL API endpoints defined in the JSON. Use the actual base_url and endpoint paths. 
+       Do NOT mock, simulate, or hardcode any response data. The code must make real HTTP requests and return real data.
+    6. Include any required authentication headers as defined in auth_details (e.g., Bearer token from environment variables).
+    7. Use `os.getenv()` to read any required auth tokens or API keys from environment variables as specified in the API definitions.
+    8. Return ONLY the valid Python code block. No markdown fencing (```python).
     """
 
     response = client.chat.completions.create(
