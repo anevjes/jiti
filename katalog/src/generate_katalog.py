@@ -28,6 +28,7 @@ from doc_converter import walk_and_convert, convert_docs_for_api
 from aoai_client import generate
 from prompts import data_model_prompts, api_contract_prompts, api_registry_prompts
 from api_registry import load_registry, save_registry, upsert_api, parse_api_json
+from ai_search_client import ensure_index, ingest_registry
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -105,13 +106,13 @@ def process_api(
 
     # 1. Convert docs (docx/pdf → md)
     if not skip_convert:
-        log.info("[1/5] Converting docs …")
+        log.info("[1/6] Converting docs …")
         convert_docs_for_api(api_dir)
     else:
-        log.info("[1/5] Skipping doc conversion (--skip-convert)")
+        log.info("[1/6] Skipping doc conversion (--skip-convert)")
 
     # 2. Gather inputs
-    log.info("[2/5] Gathering swagger + docs …")
+    log.info("[2/6] Gathering swagger + docs …")
     swagger_text = _read_swagger(api_dir)
     docs_md = _read_md_docs(api_dir)
 
@@ -120,7 +121,7 @@ def process_api(
         return
 
     # 3. Generate Data Model
-    log.info("[3/5] Generating Data Model …")
+    log.info("[3/6] Generating Data Model …")
     sys_dm, usr_dm = data_model_prompts(api_name, swagger_text, docs_md)
     if dry_run:
         log.info("  [dry-run] Would call Azure OpenAI for Data Model")
@@ -130,9 +131,9 @@ def process_api(
         _write_output(api_dir, "data_model.md", dm_result)
 
     # 4. Generate SDK Proxy API Contract
-    log.info("[4/5] Generating SDK Proxy API Contract …")
+    log.info("[4/6] Generating SDK Proxy API Contract …")
     sys_ac, usr_ac = api_contract_prompts(api_name, swagger_text, docs_md)
-    
+
     if dry_run:
         log.info("  [dry-run] Would call Azure OpenAI for API Contract")
         _write_output(api_dir, "api_contract_prompt_PREVIEW.md", f"# SYSTEM\n\n{sys_ac}\n\n# USER\n\n{usr_ac}")
@@ -141,7 +142,7 @@ def process_api(
         _write_output(api_dir, "api_contract.md", ac_result)
 
     # 5. Generate / upsert API registry entry (apis.json)
-    log.info("[5/5] Generating API registry entry …")
+    log.info("[5/6] Generating API registry entry …")
     sys_reg, usr_reg = api_registry_prompts(api_name, swagger_text, docs_md)
     if dry_run:
         log.info("  [dry-run] Would call Azure OpenAI for API registry entry")
@@ -158,6 +159,7 @@ def process_api(
             log.error("  Failed to parse API registry JSON for %s: %s", api_name, exc)
             _write_output(api_dir, "api_registry_entry_RAW.txt", raw_json)
 
+    # NOTE: Step 6 (AI Search ingest) runs after all APIs are processed.
     log.info("Done with %s.\n", api_name)
 
 
@@ -184,6 +186,11 @@ def main() -> None:
         "--dry-run",
         action="store_true",
         help="Build prompts and write them to output/ but do NOT call Azure OpenAI.",
+    )
+    parser.add_argument(
+        "--skip-search",
+        action="store_true",
+        help="Skip the Azure AI Search index creation and document ingestion step.",
     )
     parser.add_argument(
         "--verbose", "-v",
@@ -233,6 +240,21 @@ def main() -> None:
         log.info("Registry saved to %s (%d API(s)).", registry_path, len(registry))
     else:
         log.info("[dry-run] Would save registry with %d API(s) to %s", len(registry), registry_path)
+
+    # 6. Ingest into Azure AI Search
+    if not args.skip_search and not args.dry_run:
+        log.info("[6/6] Ingesting %d API(s) into Azure AI Search …", len(registry))
+        try:
+            ensure_index()
+            ingested = ingest_registry(registry)
+            log.info("AI Search: %d document(s) ingested successfully.", ingested)
+        except Exception as exc:
+            log.error("AI Search ingestion failed: %s", exc)
+            log.error("Set AZURE_SEARCH_ENDPOINT in .env and ensure access is configured.")
+    elif args.dry_run:
+        log.info("[dry-run] Would ingest %d API(s) into Azure AI Search.", len(registry))
+    else:
+        log.info("[6/6] Skipping Azure AI Search ingestion (--skip-search).")
 
     log.info("All done.")
 

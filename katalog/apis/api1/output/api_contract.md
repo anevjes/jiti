@@ -2,22 +2,27 @@
 
 **Feature**: api1  
 **Date**: 2026-03-11  
-**Component**: /apis/api1/sdk-proxy
+**Component**: /petstore/api1
 
 ---
 
 ## Base URL
 
-These are the recommended base URLs for the SDK proxy that fronts the Petstore API.
+SDK proxy runs in front of the Petstore API and simply forwards requests and responses.
 
-- **Local (developer workstation)**:  
-  `http://localhost:8080/api1`
+- **Local (developer)**: `http://localhost:8080/api1`
+- **Debug / Staging**: `https://dev-api.example.com/api1`
 
-- **Debug / Integration (shared)**:  
-  `https://debug.example.com/api1`
+Upstream (destination) Petstore server (from Swagger):
 
-> All endpoint paths below are relative to this SDK proxy base URL.  
-> The SDK proxy forwards to the upstream Petstore server: `https://petstore3.swagger.io/api/v3`.
+- **Destination**: `https://petstore3.swagger.io/api/v3`
+
+Unless otherwise noted, the SDK proxy:
+
+- Preserves HTTP method, path, and query string.
+- Forwards body as‑is.
+- Forwards all non-hop-by-hop headers, plus any configured auth headers.
+- Streams response status, headers, and body back unchanged.
 
 ---
 
@@ -29,31 +34,24 @@ These are the recommended base URLs for the SDK proxy that fronts the Petstore A
 POST /pet
 ```
 
-Create a new pet in the store by forwarding the provided `Pet` payload to the upstream Petstore `/pet` endpoint.
+Create a new pet in the store.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `POST`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/pet`
+- Forward to: `POST https://petstore3.swagger.io/api/v3/pet`
+- Proxy path: `/api1/pet` → destination `/pet`
+
+#### Request
+
+- **Body (required)**: `Pet` (JSON/XML/form)
+- Supported content types:
+  - `application/json`
+  - `application/xml`
+  - `application/x-www-form-urlencoded`
 - Auth:
-  - If SDK client is configured with OAuth token, forward as `Authorization: Bearer <token>`.
-  - Otherwise, call is made without authentication (for sandboxes only, inferred).
-- Headers:
-  - Forward `Content-Type`, `Accept`, and `Authorization` (if present).
-  - Add `X-SDK-Client: api1` (inferred).
-- Body:
-  - Forward JSON/XML/form body as-is.
-- Query params: none.
+  - OAuth2 `petstore_auth` with scopes `write:pets`, `read:pets` (inferred: SDK should accept an access token and pass as `Authorization: Bearer <token>`)
 
-#### Path parameters
-
-None.
-
-#### Request body
-
-`Pet` (JSON / XML / x-www-form-urlencoded)
-
-Minimal example (JSON):
+**Pet schema**
 
 ```json
 {
@@ -67,66 +65,61 @@ Minimal example (JSON):
     "https://example.com/photos/dog1.jpg"
   ],
   "tags": [
-    {
-      "id": 100,
-      "name": "puppy"
-    }
+    { "id": 100, "name": "friendly" }
   ],
   "status": "available"
 }
 ```
 
+#### Response forwarding rules
+
+- Forward upstream status code and body unchanged.
+- For `200`, parse as `Pet` for strongly typed SDKs; otherwise treat as opaque JSON/XML.
+- For `400`, `422`, and default, treat as error; expose status and raw body.
+
 #### Success responses
 
-| HTTP | Condition                            | Body schema |
-|------|--------------------------------------|-------------|
-| 200  | Pet created successfully             | `Pet`       |
+| HTTP | Description             | Body type |
+|------|-------------------------|-----------|
+| 200  | Successful operation    | `Pet`     |
 
 #### Error responses
 
-| HTTP | Condition                     | Notes                                   |
-|------|-------------------------------|-----------------------------------------|
-| 400  | Invalid input                 | Upstream validation failure             |
-| 422  | Validation exception          | Business/field-level validation error   |
-| 5xx  | Unexpected error (default)    | Network or upstream failure (inferred)  |
+| HTTP | Description           | Body type  |
+|------|-----------------------|-----------|
+| 400  | Invalid input         | none      |
+| 422  | Validation exception  | none      |
+| 5xx* | Unexpected error      | none/text |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
 curl -X POST "http://localhost:8080/api1/pet" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
   -d '{
     "id": 10,
     "name": "doggie",
     "category": { "id": 1, "name": "Dogs" },
     "photoUrls": ["https://example.com/photos/dog1.jpg"],
-    "tags": [{ "id": 100, "name": "puppy" }],
+    "tags": [{ "id": 100, "name": "friendly" }],
     "status": "available"
   }'
 ```
 
-#### Example – HTTP exchange
-
-**Request**
+**Upstream HTTP request**
 
 ```http
-POST /api1/pet HTTP/1.1
-Host: localhost:8080
+POST /api/v3/pet HTTP/1.1
+Host: petstore3.swagger.io
+Authorization: Bearer <ACCESS_TOKEN>
 Content-Type: application/json
-Accept: application/json
+Content-Length: 207
 
-{
-  "id": 10,
-  "name": "doggie",
-  "category": { "id": 1, "name": "Dogs" },
-  "photoUrls": ["https://example.com/photos/dog1.jpg"],
-  "tags": [{ "id": 100, "name": "puppy" }],
-  "status": "available"
-}
+{ ...Pet JSON as above... }
 ```
 
-**Response**
+**Upstream HTTP response**
 
 ```http
 HTTP/1.1 200 OK
@@ -137,7 +130,7 @@ Content-Type: application/json
   "name": "doggie",
   "category": { "id": 1, "name": "Dogs" },
   "photoUrls": ["https://example.com/photos/dog1.jpg"],
-  "tags": [{ "id": 100, "name": "puppy" }],
+  "tags": [{ "id": 100, "name": "friendly" }],
   "status": "available"
 }
 ```
@@ -150,64 +143,50 @@ Content-Type: application/json
 PUT /pet
 ```
 
-Update an existing pet in the store by sending a full `Pet` object (including its `id`).
+Update an existing pet by Id.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `PUT`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/pet`
-- Same auth and header semantics as **Add Pet**.
-- Body is forwarded unchanged.
+- Forward to: `PUT https://petstore3.swagger.io/api/v3/pet`
 
-#### Path parameters
+#### Request
 
-None.
+- **Body (required)**: `Pet` object (includes `id` of existing pet).
+- Content types: `application/json`, `application/xml`, `application/x-www-form-urlencoded`.
+- Auth: `petstore_auth` with `write:pets`, `read:pets`.
 
-#### Request body
+#### Response forwarding rules
 
-`Pet` (must include `id` of the pet to update).
-
-Example:
-
-```json
-{
-  "id": 10,
-  "name": "doggie v2",
-  "category": { "id": 1, "name": "Dogs" },
-  "photoUrls": ["https://example.com/photos/dog1-v2.jpg"],
-  "tags": [{ "id": 101, "name": "adult" }],
-  "status": "sold"
-}
-```
+Same as **Add Pet**.
 
 #### Success responses
 
-| HTTP | Condition                | Body schema |
-|------|--------------------------|-------------|
-| 200  | Pet updated successfully | `Pet`       |
+| HTTP | Description          | Body type |
+|------|----------------------|-----------|
+| 200  | Successful operation | `Pet`     |
 
 #### Error responses
 
-| HTTP | Condition              |
+| HTTP | Description            |
 |------|------------------------|
 | 400  | Invalid ID supplied    |
 | 404  | Pet not found          |
 | 422  | Validation exception   |
-| 5xx  | Unexpected error       |
+| 5xx* | Unexpected error       |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
 curl -X PUT "http://localhost:8080/api1/pet" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
   -d '{
     "id": 10,
-    "name": "doggie v2",
+    "name": "doggie-2",
     "category": { "id": 1, "name": "Dogs" },
-    "photoUrls": ["https://example.com/photos/dog1-v2.jpg"],
-    "tags": [{ "id": 101, "name": "adult" }],
-    "status": "sold"
+    "photoUrls": ["https://example.com/photos/dog1.jpg"],
+    "tags": [{ "id": 100, "name": "friendly" }],
+    "status": "pending"
   }'
 ```
 
@@ -219,62 +198,62 @@ curl -X PUT "http://localhost:8080/api1/pet" \
 GET /pet/findByStatus
 ```
 
-Retrieve pets filtered by status.
+Find pets filtered by status. Multiple status values can be provided via comma-separated strings (per upstream description).
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `GET`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/pet/findByStatus`
-- Query params:
-  - `status` (required; enum: `available`, `pending`, `sold`) forwarded as-is. Multiple comma-separated values supported.
-- Headers:
-  - Forward `Accept`, `Authorization` (if present).
-- No body.
+- Forward to: `GET https://petstore3.swagger.io/api/v3/pet/findByStatus`
 
-#### Path parameters
+#### Path & query parameters
 
-None.
+| Name   | In    | Type   | Required | Description                                               |
+|--------|-------|--------|----------|-----------------------------------------------------------|
+| status | query | string | yes      | `available`, `pending`, or `sold` (comma-separated list) |
 
-#### Query parameters
+#### Response forwarding rules
 
-| Name   | In    | Type   | Required | Description                                          |
-|--------|-------|--------|----------|------------------------------------------------------|
-| status | query | string | yes      | `available`, `pending`, or `sold` (comma-separated) |
+- For `200`, forward list of `Pet` objects.
+- For `400` or default, propagate as error.
 
 #### Success responses
 
-| HTTP | Condition             | Body schema     |
-|------|-----------------------|-----------------|
-| 200  | Pets returned         | `Pet[]` (array) |
+| HTTP | Description           | Body type  |
+|------|-----------------------|------------|
+| 200  | successful operation  | `Pet[]`    |
 
 #### Error responses
 
-| HTTP | Condition             |
+| HTTP | Description           |
 |------|-----------------------|
 | 400  | Invalid status value  |
-| 5xx  | Unexpected error      |
+| 5xx* | Unexpected error      |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
-curl -X GET "http://localhost:8080/api1/pet/findByStatus?status=available" \
-  -H "Accept: application/json"
+curl -X GET "http://localhost:8080/api1/pet/findByStatus?status=available,pending" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
-#### Example response
+**Sample 200 response**
 
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-
+```json
 [
   {
     "id": 10,
     "name": "doggie",
     "category": { "id": 1, "name": "Dogs" },
     "photoUrls": ["https://example.com/photos/dog1.jpg"],
-    "tags": [{ "id": 100, "name": "puppy" }],
+    "tags": [{ "id": 100, "name": "friendly" }],
     "status": "available"
+  },
+  {
+    "id": 11,
+    "name": "mittens",
+    "category": { "id": 2, "name": "Cats" },
+    "photoUrls": ["https://example.com/photos/cat1.jpg"],
+    "tags": [{ "id": 101, "name": "indoor" }],
+    "status": "pending"
   }
 ]
 ```
@@ -287,59 +266,41 @@ Content-Type: application/json
 GET /pet/findByTags
 ```
 
-Retrieve pets that match any of the provided tags.
+Find pets by tags. Multiple tags can be provided with comma-separated strings.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `GET`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/pet/findByTags`
-- Query params:
-  - `tags` (required; array of strings) forwarded with `explode=true`, i.e. `?tags=tag1&tags=tag2` or comma-separated.
-- Headers: forward `Accept`, `Authorization`.
-
-#### Path parameters
-
-None.
+- Forward to: `GET https://petstore3.swagger.io/api/v3/pet/findByTags`
 
 #### Query parameters
 
-| Name | In    | Type       | Required | Description                            |
-|------|-------|------------|----------|----------------------------------------|
-| tags | query | string[]   | yes      | Tags to filter by                      |
+| Name | In    | Type        | Required | Description      |
+|------|-------|-------------|----------|------------------|
+| tags | query | string\[]   | yes      | Tags to filter by |
 
-#### Success responses
+SDK should allow array input and format as `?tags=tag1,tag2`.
 
-| HTTP | Condition     | Body schema |
-|------|---------------|-------------|
-| 200  | Pets returned | `Pet[]`     |
+#### Response & error handling
 
-#### Error responses
+Same structure as **Find Pets by Status**, but for tag filtering.
 
-| HTTP | Condition            |
-|------|----------------------|
-| 400  | Invalid tag value    |
-| 5xx  | Unexpected error     |
-
-#### Example – cURL
+#### Example – curl
 
 ```bash
-curl -X GET "http://localhost:8080/api1/pet/findByTags?tags=puppy&tags=small" \
-  -H "Accept: application/json"
+curl -X GET "http://localhost:8080/api1/pet/findByTags?tags=tag1,tag2" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
-#### Example response
+**Sample 200 response**
 
 ```json
 [
   {
-    "id": 11,
-    "name": "tiny dog",
-    "category": { "id": 1, "name": "Dogs" },
-    "photoUrls": ["https://example.com/photos/dog2.jpg"],
-    "tags": [
-      { "id": 100, "name": "puppy" },
-      { "id": 101, "name": "small" }
-    ],
+    "id": 15,
+    "name": "parrot",
+    "category": { "id": 3, "name": "Birds" },
+    "photoUrls": ["https://example.com/photos/parrot1.jpg"],
+    "tags": [{ "id": 200, "name": "tag1" }],
     "status": "available"
   }
 ]
@@ -353,45 +314,48 @@ curl -X GET "http://localhost:8080/api1/pet/findByTags?tags=puppy&tags=small" \
 GET /pet/{petId}
 ```
 
-Return a single pet by its identifier.
+Retrieve details of a single pet by ID.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `GET`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/pet/{petId}`
-- Path parameter `petId` mapped 1:1.
-- Headers: forward `Accept`, `api_key` (if configured), `Authorization`.
-- No body.
+- Forward to: `GET https://petstore3.swagger.io/api/v3/pet/{petId}`
 
 #### Path parameters
 
-| Name  | In   | Type    | Required | Description        |
-|-------|------|---------|----------|--------------------|
-| petId | path | int64   | yes      | ID of pet to fetch |
+| Name  | In   | Type    | Required | Description          |
+|-------|------|---------|----------|----------------------|
+| petId | path | int64   | yes      | ID of pet to return  |
+
+#### Auth
+
+- Either:
+  - API key: header `api_key: <KEY>`, or
+  - OAuth2 `petstore_auth` with `write:pets`, `read:pets`.
+
+SDK should expose both options.
 
 #### Success responses
 
-| HTTP | Condition         | Body schema |
-|------|-------------------|-------------|
-| 200  | Pet found         | `Pet`       |
+| HTTP | Description           | Body type |
+|------|-----------------------|-----------|
+| 200  | successful operation  | `Pet`     |
 
 #### Error responses
 
-| HTTP | Condition            |
+| HTTP | Description          |
 |------|----------------------|
 | 400  | Invalid ID supplied  |
 | 404  | Pet not found        |
-| 5xx  | Unexpected error     |
+| 5xx* | Unexpected error     |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
 curl -X GET "http://localhost:8080/api1/pet/10" \
-  -H "Accept: application/json" \
-  -H "api_key: YOUR_API_KEY"
+  -H "api_key: <API_KEY>"
 ```
 
-#### Example response
+**Sample 200 response**
 
 ```json
 {
@@ -399,63 +363,51 @@ curl -X GET "http://localhost:8080/api1/pet/10" \
   "name": "doggie",
   "category": { "id": 1, "name": "Dogs" },
   "photoUrls": ["https://example.com/photos/dog1.jpg"],
-  "tags": [{ "id": 100, "name": "puppy" }],
+  "tags": [{ "id": 100, "name": "friendly" }],
   "status": "available"
 }
 ```
 
 ---
 
-### Update Pet with Form Data
+### Update Pet with Form
 
 ```
 POST /pet/{petId}
 ```
 
-Update a pet’s basic attributes (`name`, `status`) via query parameters.
+Update a pet’s basic fields using form-like parameters (here expressed as query parameters per spec).
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `POST`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/pet/{petId}`
-- Path parameter forwarded.
-- Query params:
-  - `name` (optional)
-  - `status` (optional)
-- Headers: forward `Accept`, `Authorization`.
-- Body: none (all fields in query).
+- Forward to: `POST https://petstore3.swagger.io/api/v3/pet/{petId}`
 
-#### Path parameters
+#### Path & query parameters
 
-| Name  | In   | Type  | Required | Description                    |
-|-------|------|-------|----------|--------------------------------|
-| petId | path | int64 | yes      | ID of pet that needs update   |
-
-#### Query parameters
-
-| Name   | In    | Type   | Required | Description                          |
-|--------|-------|--------|----------|--------------------------------------|
-| name   | query | string | no       | New pet name                         |
-| status | query | string | no       | New pet status (`available`, etc.)   |
+| Name  | In    | Type   | Required | Description                                |
+|-------|-------|--------|----------|--------------------------------------------|
+| petId | path  | int64  | yes      | ID of pet that needs to be updated         |
+| name  | query | string | no       | Name of pet that needs to be updated       |
+| status| query | string | no       | Status of pet that needs to be updated     |
 
 #### Success responses
 
-| HTTP | Condition         | Body schema |
-|------|-------------------|-------------|
-| 200  | Pet updated       | `Pet`       |
+| HTTP | Description           | Body type |
+|------|-----------------------|-----------|
+| 200  | successful operation  | `Pet`     |
 
 #### Error responses
 
-| HTTP | Condition         |
-|------|-------------------|
-| 400  | Invalid input     |
-| 5xx  | Unexpected error  |
+| HTTP | Description   |
+|------|---------------|
+| 400  | Invalid input |
+| 5xx* | Unexpected    |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
-curl -X POST "http://localhost:8080/api1/pet/10?name=doggie+updated&status=sold" \
-  -H "Accept: application/json"
+curl -X POST "http://localhost:8080/api1/pet/10?name=doggie-updated&status=sold" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
 ---
@@ -466,45 +418,37 @@ curl -X POST "http://localhost:8080/api1/pet/10?name=doggie+updated&status=sold"
 DELETE /pet/{petId}
 ```
 
-Delete a pet from the store.
+Delete a pet by ID.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `DELETE`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/pet/{petId}`
-- Path parameter forwarded.
-- Header `api_key` forwarded if set.
+- Forward to: `DELETE https://petstore3.swagger.io/api/v3/pet/{petId}`
 
-#### Path parameters
+#### Path & header parameters
 
-| Name  | In   | Type  | Required | Description         |
-|-------|------|-------|----------|---------------------|
-| petId | path | int64 | yes      | Pet id to delete    |
-
-#### Headers
-
-| Name    | In     | Type   | Required | Description                           |
-|---------|--------|--------|----------|---------------------------------------|
-| api_key | header | string | no       | API key for authorization (optional) |
+| Name   | In     | Type   | Required | Description          |
+|--------|--------|--------|----------|----------------------|
+| petId  | path   | int64  | yes      | Pet id to delete     |
+| api_key| header | string | no       | Optional API key     |
 
 #### Success responses
 
-| HTTP | Condition       | Body |
-|------|-----------------|------|
-| 200  | Pet deleted     | none |
+| HTTP | Description   |
+|------|---------------|
+| 200  | Pet deleted   |
 
 #### Error responses
 
-| HTTP | Condition             |
-|------|-----------------------|
-| 400  | Invalid pet value     |
-| 5xx  | Unexpected error      |
+| HTTP | Description         |
+|------|---------------------|
+| 400  | Invalid pet value   |
+| 5xx* | Unexpected error    |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
 curl -X DELETE "http://localhost:8080/api1/pet/10" \
-  -H "api_key: YOUR_API_KEY"
+  -H "api_key: <API_KEY>"
 ```
 
 ---
@@ -515,37 +459,31 @@ curl -X DELETE "http://localhost:8080/api1/pet/10" \
 POST /pet/{petId}/uploadImage
 ```
 
-Upload an image file for a pet.
+Upload an image for a pet.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `POST`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/pet/{petId}/uploadImage`
-- Path parameter forwarded.
-- Query param:
-  - `additionalMetadata` (optional)
-- Request body: binary (`application/octet-stream`) forwarded as-is.
-- Headers: `Content-Type: application/octet-stream` preferred; SDK may convert from multipart (inferred).
+- Forward to: `POST https://petstore3.swagger.io/api/v3/pet/{petId}/uploadImage`
 
-#### Path parameters
+#### Parameters
 
-| Name  | In   | Type  | Required | Description           |
-|-------|------|-------|----------|-----------------------|
-| petId | path | int64 | yes      | ID of pet to update   |
+| Name              | In    | Type   | Required | Description         |
+|-------------------|-------|--------|----------|---------------------|
+| petId             | path  | int64  | yes      | ID of pet to update |
+| additionalMetadata| query | string | no       | Additional metadata |
 
-#### Query parameters
+#### Request body
 
-| Name               | In    | Type   | Required | Description         |
-|--------------------|-------|--------|----------|---------------------|
-| additionalMetadata | query | string | no       | Additional metadata |
+- Content type: `application/octet-stream`
+- Body: binary file stream (image data).
 
 #### Success responses
 
-| HTTP | Condition         | Body schema  |
-|------|-------------------|--------------|
-| 200  | Upload succeeded  | `ApiResponse`|
+| HTTP | Description           | Body type     |
+|------|-----------------------|---------------|
+| 200  | successful operation  | `ApiResponse` |
 
-`ApiResponse` example:
+`ApiResponse` schema:
 
 ```json
 {
@@ -557,19 +495,19 @@ Upload an image file for a pet.
 
 #### Error responses
 
-| HTTP | Condition         |
+| HTTP | Description       |
 |------|-------------------|
 | 400  | No file uploaded  |
 | 404  | Pet not found     |
-| 5xx  | Unexpected error  |
+| 5xx* | Unexpected error  |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
-# Example using raw binary (SDK will typically handle file reading)
 curl -X POST "http://localhost:8080/api1/pet/10/uploadImage?additionalMetadata=profile" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/octet-stream" \
-  --data-binary "@dog-photo.jpg"
+  --data-binary "@./dog.jpg"
 ```
 
 ---
@@ -580,47 +518,43 @@ curl -X POST "http://localhost:8080/api1/pet/10/uploadImage?additionalMetadata=p
 GET /store/inventory
 ```
 
-Return a map of pet status to inventory counts.
+Returns pet inventories by status as a simple map of status → quantity.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `GET`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/store/inventory`
-- Headers:
-  - Forward `Accept`, `api_key`, `Authorization`.
+- Forward to: `GET https://petstore3.swagger.io/api/v3/store/inventory`
 
-#### Path parameters
+#### Auth
 
-None.
+- Requires API key: `api_key` header.
 
 #### Success responses
 
-| HTTP | Condition         | Body schema                     |
-|------|-------------------|----------------------------------|
-| 200  | Inventory returned| `object<string, int32>` map      |
+| HTTP | Description           | Body type             |
+|------|-----------------------|-----------------------|
+| 200  | successful operation  | `object<string,int>` |
 
 Example:
 
 ```json
 {
-  "available": 25,
+  "available": 15,
   "pending": 3,
-  "sold": 12
+  "sold": 27
 }
 ```
 
 #### Error responses
 
-| HTTP | Condition        |
+| HTTP | Description      |
 |------|------------------|
-| 5xx  | Unexpected error |
+| 5xx* | Unexpected error |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
 curl -X GET "http://localhost:8080/api1/store/inventory" \
-  -H "Accept: application/json" \
-  -H "api_key: YOUR_API_KEY"
+  -H "api_key: <API_KEY>"
 ```
 
 ---
@@ -631,30 +565,25 @@ curl -X GET "http://localhost:8080/api1/store/inventory" \
 POST /store/order
 ```
 
-Place a new order for a pet.
+Place an order for a pet.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `POST`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/store/order`
-- Body: `Order` JSON/XML/form forwarded as-is.
-
-#### Path parameters
-
-None.
+- Forward to: `POST https://petstore3.swagger.io/api/v3/store/order`
 
 #### Request body
 
-`Order` object.
+- Content types: `application/json`, `application/xml`, `application/x-www-form-urlencoded`
+- Body: `Order`
 
-Example:
+`Order` schema:
 
 ```json
 {
   "id": 10,
   "petId": 198772,
-  "quantity": 2,
-  "shipDate": "2026-03-11T10:00:00Z",
+  "quantity": 7,
+  "shipDate": "2026-03-11T10:15:30Z",
   "status": "approved",
   "complete": true
 }
@@ -662,31 +591,30 @@ Example:
 
 #### Success responses
 
-| HTTP | Condition           | Body schema |
-|------|---------------------|-------------|
-| 200  | Order placed        | `Order`     |
+| HTTP | Description           | Body type |
+|------|-----------------------|-----------|
+| 200  | successful operation  | `Order`   |
 
 #### Error responses
 
-| HTTP | Condition              |
-|------|------------------------|
-| 400  | Invalid input          |
-| 422  | Validation exception   |
-| 5xx  | Unexpected error       |
+| HTTP | Description           |
+|------|-----------------------|
+| 400  | Invalid input         |
+| 422  | Validation exception  |
+| 5xx* | Unexpected error      |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
 curl -X POST "http://localhost:8080/api1/store/order" \
   -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
   -d '{
     "id": 10,
     "petId": 198772,
-    "quantity": 2,
-    "shipDate": "2026-03-11T10:00:00Z",
-    "status": "approved",
-    "complete": true
+    "quantity": 1,
+    "shipDate": "2026-03-11T10:15:30Z",
+    "status": "placed",
+    "complete": false
   }'
 ```
 
@@ -698,48 +626,48 @@ curl -X POST "http://localhost:8080/api1/store/order" \
 GET /store/order/{orderId}
 ```
 
-Retrieve an order by its ID. For valid responses, use IDs `<= 5` or `> 10` (per upstream description).
+Find purchase order by ID.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `GET`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/store/order/{orderId}`
+- Forward to: `GET https://petstore3.swagger.io/api/v3/store/order/{orderId}`
 
 #### Path parameters
 
-| Name    | In   | Type  | Required | Description                       |
-|---------|------|-------|----------|-----------------------------------|
-| orderId | path | int64 | yes      | ID of order that needs to be fetched |
+| Name    | In   | Type  | Required | Description                                                       |
+|---------|------|-------|----------|-------------------------------------------------------------------|
+| orderId | path | int64 | yes      | ID of order that needs to be fetched                              |
+
+Note from API: valid responses for IDs ≤ 5 or > 10; others generate exceptions.
 
 #### Success responses
 
-| HTTP | Condition        | Body schema |
-|------|------------------|-------------|
-| 200  | Order found      | `Order`     |
+| HTTP | Description           | Body type |
+|------|-----------------------|-----------|
+| 200  | successful operation  | `Order`   |
 
 #### Error responses
 
-| HTTP | Condition             |
+| HTTP | Description           |
 |------|-----------------------|
 | 400  | Invalid ID supplied   |
 | 404  | Order not found       |
-| 5xx  | Unexpected error      |
+| 5xx* | Unexpected error      |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
-curl -X GET "http://localhost:8080/api1/store/order/10" \
-  -H "Accept: application/json"
+curl -X GET "http://localhost:8080/api1/store/order/10"
 ```
 
-#### Example response
+**Sample 200 response**
 
 ```json
 {
   "id": 10,
   "petId": 198772,
-  "quantity": 2,
-  "shipDate": "2026-03-11T10:00:00Z",
+  "quantity": 1,
+  "shipDate": "2026-03-11T10:15:30Z",
   "status": "approved",
   "complete": true
 }
@@ -753,34 +681,35 @@ curl -X GET "http://localhost:8080/api1/store/order/10" \
 DELETE /store/order/{orderId}
 ```
 
-Delete an order by ID. For valid delete responses, use IDs `< 1000` (per upstream description).
+Delete purchase order by ID.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `DELETE`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/store/order/{orderId}`
+- Forward to: `DELETE https://petstore3.swagger.io/api/v3/store/order/{orderId}`
 
 #### Path parameters
 
-| Name    | In   | Type  | Required | Description                              |
-|---------|------|-------|----------|------------------------------------------|
-| orderId | path | int64 | yes      | ID of the order that needs to be deleted |
+| Name    | In   | Type  | Required | Description                                                       |
+|---------|------|-------|----------|-------------------------------------------------------------------|
+| orderId | path | int64 | yes      | ID of the order that needs to be deleted                          |
+
+Valid only for `orderId < 1000` (per description).
 
 #### Success responses
 
-| HTTP | Condition        | Body |
-|------|------------------|------|
-| 200  | Order deleted    | none |
+| HTTP | Description  |
+|------|--------------|
+| 200  | order deleted|
 
 #### Error responses
 
-| HTTP | Condition             |
+| HTTP | Description           |
 |------|-----------------------|
 | 400  | Invalid ID supplied   |
 | 404  | Order not found       |
-| 5xx  | Unexpected error      |
+| 5xx* | Unexpected error      |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
 curl -X DELETE "http://localhost:8080/api1/store/order/10"
@@ -794,18 +723,18 @@ curl -X DELETE "http://localhost:8080/api1/store/order/10"
 POST /user
 ```
 
-Create a single user.
+Create a single user. Intended for logged-in administrators or self-registration flows.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `POST`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/user`
+- Forward to: `POST https://petstore3.swagger.io/api/v3/user`
 
 #### Request body
 
-`User` object.
+- Content types: `application/json`, `application/xml`, `application/x-www-form-urlencoded`
+- Body: `User`
 
-Example:
+`User` schema:
 
 ```json
 {
@@ -822,30 +751,28 @@ Example:
 
 #### Success responses
 
-| HTTP | Condition          | Body schema |
-|------|--------------------|-------------|
-| 200  | User created       | `User`      |
+| HTTP | Description           | Body type |
+|------|-----------------------|-----------|
+| 200  | successful operation  | `User`    |
 
 #### Error responses
 
-| HTTP | Condition        |
+| HTTP | Description      |
 |------|------------------|
-| 5xx  | Unexpected error |
+| 5xx* | Unexpected error |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
 curl -X POST "http://localhost:8080/api1/user" \
   -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
   -d '{
-    "id": 10,
-    "username": "theUser",
-    "firstName": "John",
-    "lastName": "James",
-    "email": "john@email.com",
-    "password": "12345",
-    "phone": "12345",
+    "username": "alice",
+    "firstName": "Alice",
+    "lastName": "Anderson",
+    "email": "alice@example.com",
+    "password": "secret",
+    "phone": "+123456789",
     "userStatus": 1
   }'
 ```
@@ -858,39 +785,37 @@ curl -X POST "http://localhost:8080/api1/user" \
 POST /user/createWithList
 ```
 
-Create multiple users in a single request.
+Bulk create users from an array.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `POST`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/user/createWithList`
+- Forward to: `POST https://petstore3.swagger.io/api/v3/user/createWithList`
 
 #### Request body
 
-Array of `User` objects.
+- Content type: `application/json`
+- Body: `User[]`
 
 Example:
 
 ```json
 [
   {
-    "id": 11,
     "username": "user1",
-    "firstName": "Alice",
-    "lastName": "Smith",
-    "email": "alice@example.com",
-    "password": "pwd1",
-    "phone": "111-111-1111",
+    "firstName": "User",
+    "lastName": "One",
+    "email": "user1@example.com",
+    "password": "pass1",
+    "phone": "111111111",
     "userStatus": 1
   },
   {
-    "id": 12,
     "username": "user2",
-    "firstName": "Bob",
-    "lastName": "Jones",
-    "email": "bob@example.com",
-    "password": "pwd2",
-    "phone": "222-222-2222",
+    "firstName": "User",
+    "lastName": "Two",
+    "email": "user2@example.com",
+    "password": "pass2",
+    "phone": "222222222",
     "userStatus": 1
   }
 ]
@@ -898,34 +823,22 @@ Example:
 
 #### Success responses
 
-| HTTP | Condition            | Body schema |
-|------|----------------------|-------------|
-| 200  | Users created        | `User`      |
-
-(Upstream returns a `User` object, likely a status user representation.)
+| HTTP | Description           | Body type |
+|------|-----------------------|-----------|
+| 200  | Successful operation  | `User`    |
 
 #### Error responses
 
-| HTTP | Condition        |
+| HTTP | Description      |
 |------|------------------|
-| 5xx  | Unexpected error |
+| 5xx* | Unexpected error |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
 curl -X POST "http://localhost:8080/api1/user/createWithList" \
   -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
-  -d '[{
-    "id": 11,
-    "username": "user1",
-    "firstName": "Alice",
-    "lastName": "Smith",
-    "email": "alice@example.com",
-    "password": "pwd1",
-    "phone": "111-111-1111",
-    "userStatus": 1
-  }]'
+  -d '[{ "username": "user1" }, { "username": "user2" }]'
 ```
 
 ---
@@ -936,45 +849,49 @@ curl -X POST "http://localhost:8080/api1/user/createWithList" \
 GET /user/login
 ```
 
-Log a user into the system. Returns a session token string (semantics defined by upstream).
+Log a user into the system.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `GET`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/user/login`
-- Query params: `username`, `password`.
+- Forward to: `GET https://petstore3.swagger.io/api/v3/user/login`
 
 #### Query parameters
 
-| Name     | In    | Type   | Required | Description                       |
-|----------|-------|--------|----------|-----------------------------------|
-| username | query | string | no       | The user name for login           |
-| password | query | string | no       | Clear-text password               |
+| Name     | In    | Type   | Required | Description                         |
+|----------|-------|--------|----------|-------------------------------------|
+| username | query | string | no       | The user name for login             |
+| password | query | string | no       | The password for login in cleartext |
 
 #### Success responses
 
-| HTTP | Condition            | Body schema | Headers                                           |
-|------|----------------------|-------------|---------------------------------------------------|
-| 200  | Login successful     | `string`    | `X-Rate-Limit`, `X-Expires-After` (date-time)     |
+| HTTP | Description           | Body type | Headers                                      |
+|------|-----------------------|-----------|----------------------------------------------|
+| 200  | successful operation  | string    | `X-Rate-Limit`, `X-Expires-After`            |
 
-Example body:
+Example headers:
 
-```text
-"logged in user session: 123456789"
+```http
+X-Rate-Limit: 1000
+X-Expires-After: 2026-03-11T11:15:30Z
+```
+
+Body example:
+
+```json
+"logged in user session: 1234567890"
 ```
 
 #### Error responses
 
-| HTTP | Condition                          |
-|------|------------------------------------|
-| 400  | Invalid username/password supplied |
-| 5xx  | Unexpected error                   |
+| HTTP | Description                         |
+|------|-------------------------------------|
+| 400  | Invalid username/password supplied  |
+| 5xx* | Unexpected error                    |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
-curl -X GET "http://localhost:8080/api1/user/login?username=theUser&password=12345" \
-  -H "Accept: application/json"
+curl -X GET "http://localhost:8080/api1/user/login?username=alice&password=secret"
 ```
 
 ---
@@ -985,26 +902,25 @@ curl -X GET "http://localhost:8080/api1/user/login?username=theUser&password=123
 GET /user/logout
 ```
 
-Log out the current logged-in user session.
+Log out the current user.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `GET`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/user/logout`
+- Forward to: `GET https://petstore3.swagger.io/api/v3/user/logout`
 
 #### Success responses
 
-| HTTP | Condition           |
-|------|---------------------|
-| 200  | Logout successful   |
+| HTTP | Description           |
+|------|-----------------------|
+| 200  | successful operation  |
 
 #### Error responses
 
-| HTTP | Condition        |
+| HTTP | Description      |
 |------|------------------|
-| 5xx  | Unexpected error |
+| 5xx* | Unexpected error |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
 curl -X GET "http://localhost:8080/api1/user/logout"
@@ -1018,51 +934,49 @@ curl -X GET "http://localhost:8080/api1/user/logout"
 GET /user/{username}
 ```
 
-Retrieve details for a given username.
+Retrieve user details by username.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `GET`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/user/{username}`
+- Forward to: `GET https://petstore3.swagger.io/api/v3/user/{username}`
 
 #### Path parameters
 
-| Name     | In   | Type   | Required | Description                                    |
-|----------|------|--------|----------|------------------------------------------------|
-| username | path | string | yes      | The name that needs to be fetched (e.g. user1) |
+| Name     | In   | Type   | Required | Description                            |
+|----------|------|--------|----------|----------------------------------------|
+| username | path | string | yes      | Name that needs to be fetched          |
 
 #### Success responses
 
-| HTTP | Condition      | Body schema |
-|------|----------------|-------------|
-| 200  | User found     | `User`      |
+| HTTP | Description           | Body type |
+|------|-----------------------|-----------|
+| 200  | successful operation  | `User`    |
 
 #### Error responses
 
-| HTTP | Condition                  |
-|------|----------------------------|
-| 400  | Invalid username supplied  |
-| 404  | User not found             |
-| 5xx  | Unexpected error           |
+| HTTP | Description                 |
+|------|-----------------------------|
+| 400  | Invalid username supplied   |
+| 404  | User not found              |
+| 5xx* | Unexpected error            |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
-curl -X GET "http://localhost:8080/api1/user/user1" \
-  -H "Accept: application/json"
+curl -X GET "http://localhost:8080/api1/user/alice"
 ```
 
-#### Example response
+**Sample 200 response**
 
 ```json
 {
-  "id": 21,
-  "username": "user1",
-  "firstName": "Test",
-  "lastName": "User",
-  "email": "user1@example.com",
-  "password": "*****",
-  "phone": "555-000-0001",
+  "id": 10,
+  "username": "alice",
+  "firstName": "Alice",
+  "lastName": "Anderson",
+  "email": "alice@example.com",
+  "password": "****",
+  "phone": "+123456789",
   "userStatus": 1
 }
 ```
@@ -1075,65 +989,49 @@ curl -X GET "http://localhost:8080/api1/user/user1" \
 PUT /user/{username}
 ```
 
-Update an existing user’s data.
+Update an existing user.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `PUT`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/user/{username}`
+- Forward to: `PUT https://petstore3.swagger.io/api/v3/user/{username}`
 
 #### Path parameters
 
-| Name     | In   | Type   | Required | Description                     |
-|----------|------|--------|----------|---------------------------------|
-| username | path | string | yes      | Name of the user to be updated |
+| Name     | In   | Type   | Required | Description                      |
+|----------|------|--------|----------|----------------------------------|
+| username | path | string | yes      | Name of user to update           |
 
 #### Request body
 
-`User` object with updated fields.
-
-Example:
-
-```json
-{
-  "id": 21,
-  "username": "user1",
-  "firstName": "TestUpdated",
-  "lastName": "User",
-  "email": "user1_updated@example.com",
-  "password": "newpwd",
-  "phone": "555-000-0001",
-  "userStatus": 1
-}
-```
+- Content types: `application/json`, `application/xml`, `application/x-www-form-urlencoded`
+- Body: `User` (updated fields).
 
 #### Success responses
 
-| HTTP | Condition         |
-|------|-------------------|
-| 200  | User updated      |
+| HTTP | Description           |
+|------|-----------------------|
+| 200  | successful operation  |
 
 #### Error responses
 
-| HTTP | Condition      |
-|------|----------------|
-| 400  | bad request    |
-| 404  | user not found |
-| 5xx  | Unexpected     |
+| HTTP | Description      |
+|------|------------------|
+| 400  | bad request      |
+| 404  | user not found   |
+| 5xx* | Unexpected error |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
-curl -X PUT "http://localhost:8080/api1/user/user1" \
+curl -X PUT "http://localhost:8080/api1/user/alice" \
   -H "Content-Type: application/json" \
   -d '{
-    "id": 21,
-    "username": "user1",
-    "firstName": "TestUpdated",
-    "lastName": "User",
-    "email": "user1_updated@example.com",
-    "password": "newpwd",
-    "phone": "555-000-0001",
+    "username": "alice",
+    "firstName": "Alice",
+    "lastName": "A.",
+    "email": "alice@example.com",
+    "password": "new-secret",
+    "phone": "+123456789",
     "userStatus": 1
   }'
 ```
@@ -1148,57 +1046,80 @@ DELETE /user/{username}
 
 Delete a user by username.
 
-**Forwarding rules**
+**Destination mapping**
 
-- Method: `DELETE`
-- Upstream URL: `https://petstore3.swagger.io/api/v3/user/{username}`
+- Forward to: `DELETE https://petstore3.swagger.io/api/v3/user/{username}`
 
 #### Path parameters
 
-| Name     | In   | Type   | Required | Description                         |
-|----------|------|--------|----------|-------------------------------------|
-| username | path | string | yes      | The name of the user to be deleted |
+| Name     | In   | Type   | Required | Description                     |
+|----------|------|--------|----------|---------------------------------|
+| username | path | string | yes      | The name that needs to be deleted |
 
 #### Success responses
 
-| HTTP | Condition       |
-|------|-----------------|
-| 200  | User deleted    |
+| HTTP | Description   |
+|------|---------------|
+| 200  | User deleted  |
 
 #### Error responses
 
-| HTTP | Condition                  |
-|------|----------------------------|
-| 400  | Invalid username supplied  |
-| 404  | User not found             |
-| 5xx  | Unexpected error           |
+| HTTP | Description                 |
+|------|-----------------------------|
+| 400  | Invalid username supplied   |
+| 404  | User not found              |
+| 5xx* | Unexpected error            |
 
-#### Example – cURL
+#### Example – curl
 
 ```bash
-curl -X DELETE "http://localhost:8080/api1/user/user1"
+curl -X DELETE "http://localhost:8080/api1/user/alice"
 ```
 
 ---
 
 ## Orchestrator API Contract
 
-No additional backend orchestrator is defined beyond the upstream Petstore API itself. All SDK proxy operations are direct pass-throughs to the Petstore endpoints described above (no extra orchestration endpoints are specified).
+No separate backend orchestration layer is described. All SDK proxy calls are direct pass-through to the Petstore API:
+
+- Base: `https://petstore3.swagger.io/api/v3`
+- Paths and semantics as detailed above.
+- Orchestration behaviors (e.g., fan-out, data aggregation) are **not** defined in the supplied Swagger and are therefore not implemented.
+
+If an orchestrator is introduced later (e.g., combining pet + order data in one call), those endpoints will be additive and explicitly marked as “(inferred)” or “orchestrated” in a future revision.
 
 ---
 
 ## Mock Destination API Contract
 
-No dedicated mock/demo services are defined in the provided specification.  
-For testing, the SDK proxy can be configured (inferred) to point to a mock base URL instead of the real Petstore:
+No explicit mock/demo services are defined in the supplied documentation.
 
-- **Mock upstream (inferred)**: `http://localhost:9090/mock-petstore`
+For local development it is reasonable to provide a mock Petstore service (inferred) behind the SDK proxy. Any such mock should:
 
-Expected behavior for mocks (inferred):
+- Listen on: `http://localhost:9090/api/v3` (inferred)
+- Implement the same paths, methods, and schemas as the real Petstore server.
+- Return deterministic stub data, e.g.:
 
-- Same paths, methods, and schemas as the real Petstore:
-  - `/pet`, `/pet/{petId}`, `/store/order`, `/user/{username}`, etc.
-- Responses:
-  - Deterministic canned responses based on IDs (e.g. `petId=10` returns a fixed `Pet` object).
-  - Error codes `400`/`404` simulated for invalid IDs or usernames.
-- Content types and security headers may be ignored by the mock unless explicitly configured.
+### (inferred) Example Mock – Get Pet by ID
+
+```
+GET /pet/{petId}
+```
+
+**Sample mock response**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "id": 10,
+  "name": "mock-doggie",
+  "category": { "id": 1, "name": "Dogs" },
+  "photoUrls": ["https://mock/photos/dog1.jpg"],
+  "tags": [{ "id": 1, "name": "mock" }],
+  "status": "available"
+}
+```
+
+The SDK proxy should be configurable to point either at the real Petstore base URL or at this mock base URL, while keeping the SDK surface identical.

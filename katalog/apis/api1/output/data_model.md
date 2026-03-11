@@ -1,488 +1,647 @@
-# Data Model: api1 (Petstore API)
+# Data Model: api1
 
-**Feature**: api1  
+**Feature**: api1
 **Date**: 2026-03-11
-
----
 
 ## Entities
 
 ### Pet
 
-Represents an individual pet that can be offered for sale in the store, including its identity, classification, photos, tags, and availability status.
+Represents an individual pet that can be listed, searched, sold, and removed from the store. Pets are categorized, can have multiple photos, and can be tagged for flexible grouping and search.
 
-| Field      | Type                    | Required | Description |
-|-----------|-------------------------|----------|-------------|
-| id        | integer(int64)          | no       | Unique identifier of the pet in the store. Often assigned by the system. |
-| name      | string                  | yes      | Display name of the pet (e.g., "Fido", "Snowball"). |
-| category  | Category                | no       | Category of the pet (e.g., Dogs, Cats) used for high-level classification. |
-| photoUrls | string[]                | yes      | List of URLs pointing to images of the pet. Must contain at least one URL. |
-| tags      | Tag[]                   | no       | List of tags describing or grouping the pet (e.g., "small", "adopted"). |
-| status    | string (enum)           | no       | Current lifecycle status of the pet in the store. One of: `available`, `pending`, `sold`. |
+| Field      | Type              | Required | Description |
+|-----------|-------------------|----------|-------------|
+| id        | integer (int64)   | No       | Unique identifier for the pet in the store. Usually assigned by the system. |
+| name      | string            | Yes      | Name of the pet as displayed to users. |
+| category  | Category          | No       | Category to which this pet belongs (e.g., Dogs, Cats). |
+| photoUrls | string[]          | Yes      | List of URLs pointing to photos for this pet. |
+| tags      | Tag[]             | No       | List of tags for flexible grouping and searching (e.g., “puppy”, “small”). |
+| status    | string (enum)     | No       | Pet status in the store: `available`, `pending`, or `sold`. |
 
 **Validation rules**:
-- `name` must be non-empty text.
-- `photoUrls` must be a non-empty array; each item should be a valid URL string (inferred).
-- `status`, if provided, must be one of: `available`, `pending`, `sold`.
-- `id`, if provided, must be a positive 64-bit integer (inferred).
-- `category.id`, `tags[].id` (if present) are positive 64-bit integers (inferred).
+- `name`:
+  - Must be non-empty.
+- `photoUrls`:
+  - Must contain at least one item.
+  - Each entry must be a non-empty string (URL format inferred).
+- `status`:
+  - If present, must be one of: `available`, `pending`, `sold`.
+- `id`:
+  - When provided, must be a positive 64-bit integer (inferred).
+- `category`:
+  - If provided, must be a valid `Category` object.
+- `tags`:
+  - If provided, each element must be a valid `Tag` object.
 
-**State transitions** (business-level, as implied by API):
-- `available` → `pending`: when a pet is reserved or an in-progress order exists (inferred).
-- `pending` → `sold`: when an order is completed and the pet is no longer available.
-- `available`/`pending`/`sold` → (deleted): when `DELETE /pet/{petId}` is called; pet is removed from the catalog.
+**State transitions** (status):
+- `available` → `pending` → `sold`
+- `available` → `sold` (direct sale, inferred)
+- Transitions from `sold` back to `available` or `pending` should be avoided (inferred business rule; may be reserved for corrections only).
 
 ---
 
 ### Category
 
-Represents a high-level classification for pets (such as Dogs, Cats, Birds), used to organize the catalog.
+Represents a high-level classification for pets (e.g., Dogs, Cats). Used mainly for grouping and reporting.
 
-| Field | Type           | Required | Description |
-|-------|----------------|----------|-------------|
-| id    | integer(int64) | no       | Unique identifier of the category. |
-| name  | string         | no       | Human-readable category name (e.g., "Dogs"). |
+| Field | Type            | Required | Description |
+|-------|-----------------|----------|-------------|
+| id    | integer (int64) | No       | Unique identifier for the category. |
+| name  | string          | No       | Human-readable category name (e.g., “Dogs”). |
 
 **Validation rules**:
-- `id`, if provided, must be a positive 64-bit integer (inferred).
-- `name`, if provided, should be non-empty and unique within categories (inferred).
+- `id`:
+  - If provided, must be a positive 64-bit integer (inferred).
+- `name`:
+  - If provided, must be a non-empty string (inferred).
 
 ---
 
 ### Tag
 
-Represents a free-form label used to group or annotate pets for search and reporting purposes.
+Represents a flexible label that can be associated with pets for grouping, search, or marketing campaigns.
 
-| Field | Type           | Required | Description |
-|-------|----------------|----------|-------------|
-| id    | integer(int64) | no       | Unique identifier of the tag. |
-| name  | string         | no       | Name of the tag (e.g., "puppy", "vaccinated"). |
+| Field | Type            | Required | Description |
+|-------|-----------------|----------|-------------|
+| id    | integer (int64) | No       | Unique identifier for the tag. |
+| name  | string          | No       | Tag label (e.g., “puppy”, “on-sale”). |
 
 **Validation rules**:
-- `id`, if provided, must be a positive 64-bit integer (inferred).
-- `name`, if provided, should be non-empty and unique within tags for a given tenant/store (inferred).
+- `id`:
+  - If provided, must be a positive 64-bit integer (inferred).
+- `name`:
+  - If provided, must be a non-empty string (inferred).
 
 ---
 
 ### Order
 
-Represents a purchase order for a specific pet, including quantities, shipping information, and lifecycle status.
+Represents a customer purchase order for a specific pet, including quantity, shipping date, and lifecycle status. Used for order placement, tracking, and cancellation.
 
-| Field    | Type               | Required | Description |
-|----------|--------------------|----------|-------------|
-| id       | integer(int64)     | no       | Unique identifier of the order. |
-| petId    | integer(int64)     | no       | Identifier of the pet being ordered, referencing `Pet.id`. |
-| quantity | integer(int32)     | no       | Quantity of this pet ordered (typically `1`; supports bulk scenarios). |
-| shipDate | string(date-time)  | no       | Date-time when the order is scheduled to ship or actually shipped. |
-| status   | string (enum)      | no       | Order lifecycle status (`placed`, `approved`, `delivered`). |
-| complete | boolean            | no       | Flag indicating whether the order is considered fully complete. |
+| Field   | Type              | Required | Description |
+|---------|-------------------|----------|-------------|
+| id      | integer (int64)   | No       | Unique identifier for the order. Used as the reference number for tracking. |
+| petId   | integer (int64)   | No       | Identifier of the pet being ordered. Must reference an existing `Pet`. |
+| quantity| integer (int32)   | No       | Number of items ordered (typically 1 for a pet store; higher values may indicate bulk or accessory sales, inferred). |
+| shipDate| string (date-time)| No       | Date and time when the order is scheduled to ship. |
+| status  | string (enum)     | No       | Order status: `placed`, `approved`, or `delivered`. |
+| complete| boolean           | No       | Flag indicating whether the order is fully processed and closed. |
 
 **Validation rules**:
-- `id`, if provided, must be a positive 64-bit integer (inferred).
-- `petId`, if provided, must be a positive 64-bit integer referencing an existing Pet (inferred).
-- `quantity`, if provided, must be a positive 32-bit integer (inferred).
-- `shipDate`, if provided, must be a valid ISO 8601 date-time string.
-- `status`, if provided, must be one of: `placed`, `approved`, `delivered`.
-- `complete`, if provided, must be boolean.
+- `id`:
+  - If provided, must be a positive 64-bit integer (inferred).
+- `petId`:
+  - If provided, must be a positive 64-bit integer (inferred).
+- `quantity`:
+  - If provided, must be a positive 32-bit integer (inferred).
+- `shipDate`:
+  - If provided, must be a valid ISO 8601 date-time string.
+- `status`:
+  - If provided, must be one of: `placed`, `approved`, `delivered`.
+- `complete`:
+  - Boolean; if omitted, defaults to `false` (inferred).
 
-**State transitions** (inferred from enum and business guide):
-- `placed` → `approved`: after validation/acceptance of the order.
-- `approved` → `delivered`: when the pet has been delivered to the customer.
-- Orders can be deleted (`DELETE /store/order/{orderId}`) while in any state; business rules may restrict deletion to `placed` or `approved` in real implementations (inferred).
+**State transitions** (status):
+- `placed` → `approved` → `delivered`
+- Cancellation (inferred):
+  - A deleted order is conceptually a transition from any state to a “cancelled” terminal state, but this is represented by removal via API rather than a status value.
 
 ---
 
 ### InventorySnapshot
 
-Represents the current quantity of pets in each availability status as returned by the inventory endpoint.
+Represents a dynamic view of current inventory counts, grouped by pet status. The structure is a map from status code to quantity.
 
-| Field                    | Type                    | Required | Description |
-|--------------------------|-------------------------|----------|-------------|
-| [statusCode] (dynamic)   | integer(int32)          | no       | For each status key (e.g., `available`, `pending`, `sold`), the number of pets currently in that state. Keys are strings; values are counts. |
-
-**Notes**:
-- This is represented as a JSON object where each property name is a status code and the value is an integer count (e.g., `{ "available": 42, "sold": 5 }`).
-- Keys are not restricted in the schema but are typically the same as `Pet.status` values (inferred from docs).
+| Field            | Type                      | Required | Description |
+|------------------|---------------------------|----------|-------------|
+| <statusKey>      | integer (int32)           | No       | Key is a string (typically `available`, `pending`, `sold` – inferred); value is the count of pets in that status. |
 
 **Validation rules**:
-- Each value must be a non-negative 32-bit integer (inferred).
-- Keys should be consistent with `Pet.status` enumerations when representing standard inventory (`available`, `pending`, `sold`) (inferred).
+- Object keys:
+  - Any string key is allowed; typical keys are `available`, `pending`, `sold` (inferred).
+- Values:
+  - Each value must be a non-negative 32-bit integer.
+
+**State transitions**:
+- Inventory counts change in response to:
+  - Pet creation or deletion.
+  - Pet status updates (`available` ↔ `pending` ↔ `sold`).
+  - Order placement and completion (which can move pets to `sold`, inferred).
 
 ---
 
 ### User
 
-Represents a person (customer or staff) who can interact with the system and whose profile is managed via the API.
+Represents a user account in the system, covering both customers and staff. Used for authentication (login/logout) and profile management.
 
-| Field      | Type           | Required | Description |
-|------------|----------------|----------|-------------|
-| id         | integer(int64) | no       | Unique identifier of the user. |
-| username   | string         | no       | Unique login and lookup name of the user. |
-| firstName  | string         | no       | User's given name. |
-| lastName   | string         | no       | User's family name. |
-| email      | string         | no       | Contact email address for the user. |
-| password   | string         | no       | User's password in clear text as sent to the API (demo-only practice). |
-| phone      | string         | no       | Contact phone number for the user. |
-| userStatus | integer(int32) | no       | Application-specific status code for the user (e.g., active, inactive, banned) (inferred from description). |
+| Field      | Type            | Required | Description |
+|------------|-----------------|----------|-------------|
+| id         | integer (int64) | No       | Unique identifier for the user. Typically assigned by the system. |
+| username   | string          | No       | Unique username used for login and user lookup. |
+| firstName  | string          | No       | User’s given name. |
+| lastName   | string          | No       | User’s family name. |
+| email      | string          | No       | User’s email address. |
+| password   | string          | No       | User’s password in clear text (for request payloads). Should be handled securely in actual implementations. |
+| phone      | string          | No       | Contact phone number. |
+| userStatus | integer (int32) | No       | Status code indicating user’s account state (e.g., 0 = inactive, 1 = active – specific mapping inferred). |
 
 **Validation rules**:
-- `id`, if provided, must be a positive 64-bit integer (inferred).
-- `username`, if provided, should be unique within the system and non-empty (inferred).
-- `email`, if provided, should be a valid email address format (inferred).
-- `password`, if provided, should satisfy minimum length and complexity policies in real deployments (inferred).
-- `userStatus`, if provided, should be a valid status code defined by the hosting system; typical usage might be: `0=inactive`, `1=active`, etc. (inferred).
-- When used for login (`/user/login`), `username` and `password` parameters must match an existing user record (inferred).
+- `id`:
+  - If provided, must be a positive 64-bit integer (inferred).
+- `username`:
+  - If used for creation, should be unique (inferred).
+  - When used in path operations, must match an existing username.
+- `email`:
+  - If provided, must be a syntactically valid email address (inferred).
+- `password`:
+  - If provided, must be non-empty; minimum length constraints likely (e.g., ≥ 5 chars, inferred).
+- `userStatus`:
+  - If provided, must be a 32-bit integer. Specific semantic values are implementation-defined.
 
-**State transitions** (inferred):
-- User profile data (e.g., name, email, phone, password, `userStatus`) can be updated via `PUT /user/{username}`.
-- User can effectively transition from "present" → "deleted" when `DELETE /user/{username}` is called.
+**State transitions** (userStatus – inferred):
+- `inactive` (e.g., 0) → `active` (e.g., 1) upon successful onboarding.
+- `active` → `inactive` or other codes for suspension/closure.
+- Delete operations represent a terminal removal rather than another status value.
 
 ---
 
 ### ApiResponse
 
-Represents a generic API-level response used by operations like image upload to return codes, types, and messages.
+Represents a generic API operation response used primarily by the image upload endpoint to convey results and messages.
 
-| Field   | Type           | Required | Description |
-|---------|----------------|----------|-------------|
-| code    | integer(int32) | no       | Numeric status or result code (application-level). |
-| type    | string         | no       | Short classification or type of the response (e.g., "success", "error") (inferred). |
-| message | string         | no       | Human-readable message providing additional detail about the result. |
+| Field   | Type            | Required | Description |
+|---------|-----------------|----------|-------------|
+| code    | integer (int32) | No       | Response status or business code associated with the operation. |
+| type    | string          | No       | Short, categorised type or key for the response (e.g., “success”, “error” – inferred). |
+| message | string          | No       | Human-readable message describing the result. |
 
 **Validation rules**:
-- `code`, if provided, must be a valid 32-bit integer.
-- `type`, if provided, should be a short, non-empty string (inferred).
-- `message`, if provided, should be a human-readable description; may be used for UI/display (inferred).
+- `code`:
+  - If provided, must be a 32-bit integer.
+- `type`:
+  - If provided, must be a non-empty string (inferred).
+- `message`:
+  - If provided, should be a descriptive string (inferred).
 
 ---
 
-### PetUploadRequest
+### PetUploadImageRequest
 
-Represents the data involved when a client uploads a binary image file for a specific pet.
+Represents the payload and parameters required to upload an image for a specific pet.
 
-| Field              | Type             | Required | Description |
-|--------------------|------------------|----------|-------------|
-| petId              | integer(int64)   | yes      | Identifier of the pet whose image is being uploaded. |
-| additionalMetadata | string           | no       | Textual metadata associated with the uploaded image (e.g., caption, source). |
-| file               | binary           | no       | Binary image data sent as `application/octet-stream` in the request body. |
+| Field              | Type              | Required | Description |
+|--------------------|-------------------|----------|-------------|
+| petId              | integer (int64)   | Yes      | ID of the pet whose image is being uploaded. Must reference an existing `Pet`. |
+| additionalMetadata | string            | No       | Free-form metadata describing the image (e.g., photographer, angle, notes). |
+| file               | binary (octet-stream) | Yes  | Binary image content in `application/octet-stream` format. |
 
 **Validation rules**:
-- `petId` must be a positive 64-bit integer.
-- `additionalMetadata`, if provided, should be short text (inferred).
-- `file` should not be empty for a successful upload; absence leads to "No file uploaded" error.
-- Uploaded file should conform to allowed file size and image types (e.g., JPEG, PNG) depending on implementation (inferred).
+- `petId`:
+  - Must be a positive 64-bit integer.
+  - Must reference an existing pet, otherwise `404 Pet not found`.
+- `file`:
+  - Required.
+  - Must contain non-empty binary content.
+  - Image type or size limits may be enforced by implementation (inferred).
+- `additionalMetadata`:
+  - Optional; any string allowed (inferred).
+
+**State transitions**:
+- On successful upload, the pet’s associated media set is extended (relationship is implicit; not stored as a field on `Pet` in the schema but typically linked to `photoUrls`, inferred).
 
 ---
 
 ### PetSearchByStatusRequest
 
-Represents the query parameters used to search pets by availability status.
+Represents the query parameters for searching pets by status.
 
-| Field  | Type               | Required | Description |
-|--------|--------------------|----------|-------------|
-| status | string (enum)      | yes      | Status values to filter pets. Single string that may encode multiple comma-separated values. Allowed values: `available`, `pending`, `sold`. Default is `available`. |
+| Field  | Type   | Required | Description |
+|--------|--------|----------|-------------|
+| status | string | Yes      | Pet status filter; one of `available`, `pending`, `sold`. Multiple values can be provided as comma-separated strings. |
 
 **Validation rules**:
-- `status` must not be empty.
-- Each status token (after splitting on commas) must be one of: `available`, `pending`, `sold` (inferred from description).
-- If invalid value is provided, API returns "Invalid status value".
+- `status`:
+  - Required.
+  - Comma-separated string; each token must be one of: `available`, `pending`, `sold`.
+  - Invalid values yield `400 Invalid status value`.
 
 ---
 
 ### PetSearchByTagsRequest
 
-Represents the query parameters used to search pets by tags.
+Represents the query parameters for searching pets by tags.
 
-| Field | Type       | Required | Description |
-|-------|------------|----------|-------------|
-| tags  | string[]   | yes      | One or more tag values to filter pets by. Can be provided as repeated query parameters or comma-separated strings. |
+| Field | Type      | Required | Description |
+|-------|-----------|----------|-------------|
+| tags  | string[]  | Yes      | List of tag names to filter by. Provided as a query parameter that can be repeated or comma-separated. |
 
 **Validation rules**:
-- `tags` must contain at least one tag value.
-- Individual tag values should be non-empty strings.
-- If invalid tag values are provided (e.g., unsupported format), "Invalid tag value" is returned (inferred).
+- `tags`:
+  - Must contain at least one value.
+  - Each tag must be a non-empty string.
+  - Invalid tags result in `400 Invalid tag value`.
 
 ---
 
 ### PetUpdateWithFormRequest
 
-Represents the parameters used when updating a pet’s basic details via the `updatePetWithForm` operation.
+Represents the parameters for updating a pet using form-style inputs (via query/form-encoded fields).
 
-| Field | Type           | Required | Description |
-|-------|----------------|----------|-------------|
-| petId | integer(int64) | yes      | Identifier of the pet to update. |
-| name  | string         | no       | New name for the pet. If omitted, name is unchanged. |
-| status| string         | no       | New status for the pet. Same allowed values as `Pet.status`. |
+| Field | Type            | Required | Description |
+|-------|-----------------|----------|-------------|
+| petId | integer (int64) | Yes      | ID of the pet that needs to be updated. |
+| name  | string          | No       | New name of the pet. |
+| status| string          | No       | New status of the pet (string; typical values: `available`, `pending`, `sold` – inferred). |
 
 **Validation rules**:
-- `petId` must be a positive 64-bit integer.
-- `name`, if provided, must be non-empty.
-- `status`, if provided, must be one of: `available`, `pending`, `sold`.
-- Attempting to update a non-existing `petId` results in "Pet not found" (inferred from similar operations).
+- `petId`:
+  - Required and must be a positive 64-bit integer.
+- `name`:
+  - If provided, must be non-empty.
+- `status`:
+  - If provided, should be one of: `available`, `pending`, `sold` (inferred).
+- At least one of `name` or `status` should be provided; otherwise the update is a no-op (inferred).
+
+**State transitions**:
+- Updates the underlying `Pet` resource, potentially changing its `name` and/or `status` as per `Pet` state transitions.
 
 ---
 
-### CreateUserRequest
+### OrderCreateRequest
 
-Represents the payload used when creating a single user.
+Represents the request body used to place an order for a pet.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| body  | User | yes      | User object to be created. |
+| Field    | Type              | Required | Description |
+|----------|-------------------|----------|-------------|
+| id       | integer (int64)   | No       | Order identifier; usually assigned by the system (client-provided ID may be accepted, inferred). |
+| petId    | integer (int64)   | No       | The pet to be ordered. Should reference an existing `Pet`. |
+| quantity | integer (int32)   | No       | Quantity to order. |
+| shipDate | string (date-time)| No       | Desired or planned shipping date/time. |
+| status   | string (enum)     | No       | Initial order status. Typically `placed` on creation (inferred). |
+| complete | boolean           | No       | Initial completion flag; typically `false` on creation (inferred). |
 
 **Validation rules**:
-- Same field-level rules as `User`.
-- `username` should be unique; creating with an existing username may fail or update depending on implementation (inferred).
+- Same as `Order`.
+- `petId` is logically required to place a meaningful order, though not marked required in schema (business rule inferred).
+- `quantity` should default to `1` if omitted (inferred for a pet store).
+
+**State transitions**:
+- On successful creation (`placeOrder`), a new `Order` moves into `placed` status.
 
 ---
 
-### CreateUsersWithListRequest
+### OrderDeleteRequest
 
-Represents the payload used when creating multiple users in bulk.
+Represents parameters needed to delete an existing order.
 
-| Field | Type    | Required | Description |
-|-------|---------|----------|-------------|
-| body  | User[]  | yes      | Array of user objects to create. |
+| Field   | Type            | Required | Description |
+|---------|-----------------|----------|-------------|
+| orderId | integer (int64) | Yes      | ID of the order that needs to be deleted. |
 
 **Validation rules**:
-- Array must not be empty (inferred).
-- Each item must satisfy `User` validation rules.
-- Duplicate usernames within the list or compared to existing users may cause errors (inferred).
+- `orderId`:
+  - Required.
+  - Must be a positive 64-bit integer.
+  - For demo behavior: IDs `< 1000` succeed; `>= 1000` or non-integers trigger API errors (per description).
+
+**State transitions**:
+- Deleting an order transitions it from any status to a terminal “deleted” state, represented by absence of the resource.
+
+---
+
+### UserCreateRequest
+
+Represents the request body used to create a single user.
+
+| Field      | Type            | Required | Description |
+|------------|-----------------|----------|-------------|
+| id         | integer (int64) | No       | System-wide user identifier. |
+| username   | string          | No       | Unique login name for the user. Recommended required for login. |
+| firstName  | string          | No       | First name. |
+| lastName   | string          | No       | Last name. |
+| email      | string          | No       | Email address. |
+| password   | string          | No       | Password in clear text (for input). |
+| phone      | string          | No       | Phone number. |
+| userStatus | integer (int32) | No       | Numeric status code for the user account. |
+
+**Validation rules**:
+- Same as `User`.
+- Business-level (inferred):
+  - `username`, `email`, `password` are typically required for functional accounts even though not marked required in the schema.
+
+**State transitions**:
+- On creation, user typically enters an “active” state (e.g., `userStatus=1`, inferred).
+
+---
+
+### UserBulkCreateRequest
+
+Represents the request payload for creating multiple users at once.
+
+| Field        | Type    | Required | Description |
+|--------------|---------|----------|-------------|
+| users        | User[]  | Yes      | Array of `User` objects to be created. Each entry follows the `User` model. |
+
+**Validation rules**:
+- `users`:
+  - Must be an array with at least one element.
+  - Each user must satisfy `UserCreateRequest` validation.
+  - Failures may be per-item or all-or-nothing depending on implementation (inferred).
+
+**State transitions**:
+- Bulk operation creates multiple user accounts in one call.
 
 ---
 
 ### UserLoginRequest
 
-Represents the query parameters used when logging a user into the system.
+Represents query parameters for logging a user into the system.
 
 | Field    | Type   | Required | Description |
 |----------|--------|----------|-------------|
-| username | string | no       | Username credential used for login. |
-| password | string | no       | Password credential (clear text) used for login. |
+| username | string | No       | Username for login. |
+| password | string | No       | Password for login in clear text. |
 
 **Validation rules**:
-- In practice, both `username` and `password` must be provided and non-empty for a successful login (inferred).
-- Values must match an existing `User` record; otherwise "Invalid username/password supplied".
+- `username` and `password`:
+  - Both should be provided together; missing one yields `400 Invalid username/password supplied` (business rule inferred).
+- Successful login:
+  - Returns a token string with headers:
+    - `X-Rate-Limit` (int32): Allowed calls per hour.
+    - `X-Expires-After` (date-time): Token expiry timestamp.
+
+**State transitions**:
+- Successful login establishes a logged-in session or token (represented externally, not in this data model).
 
 ---
 
-### UserLoginResponse
+### UserLogoutRequest
 
-Represents the response returned after a successful login, including rate limiting and token expiry information.
-
-| Field           | Type              | Required | Description |
-|-----------------|-------------------|----------|-------------|
-| body            | string            | no       | Response body containing a session token or login confirmation string (inferred). |
-| X-Rate-Limit    | integer(int32)    | no       | HTTP response header specifying calls per hour allowed for the logged-in user. |
-| X-Expires-After | string(date-time) | no       | HTTP response header specifying expiration time of the token in UTC. |
-
-**Validation rules**:
-- `X-Rate-Limit`, if present, must be a non-negative 32-bit integer.
-- `X-Expires-After`, if present, must be a valid ISO 8601 date-time.
-- `body` is an opaque string; consumers treat it as a token or informational text (inferred).
-
----
-
-### UserProfileRequest
-
-Represents operations that act on a user identified by username path parameter (get, update, delete).
-
-| Field    | Type   | Required | Description |
-|----------|--------|----------|-------------|
-| username | string | yes      | Path identifier for the target user. |
-
-**Validation rules**:
-- `username` must identify an existing user for get/update/delete; otherwise "User not found".
-- For `PUT /user/{username}`, the request body must be a valid `User` object.
-
----
-
-### InventoryRequest
-
-Represents the (empty) request to query inventory.
+Represents the absence of parameters required for logout.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| —     | —    | —        | `GET /store/inventory` does not require query or body fields. |
+| (none)| —    | —        | Logout requires no input parameters. |
 
 **Validation rules**:
-- None; endpoint is read-only and unauthenticated except for API key, which is handled as a separate concern.
+- None at the payload level; relies on authentication context (inferred).
+
+**State transitions**:
+- Terminates the current user session or token.
+
+---
+
+### UserPathRequest
+
+Represents the path parameter used for user-specific operations.
+
+| Field    | Type   | Required | Description |
+|----------|--------|----------|-------------|
+| username | string | Yes      | Username of the user targeted by get, update, or delete operations. |
+
+**Validation rules**:
+- `username`:
+  - Required.
+  - Must match an existing user for successful GET/PUT/DELETE, otherwise `404 User not found`.
+
+**State transitions**:
+- Used to read, modify, or delete the underlying `User` entity.
+
+---
+
+### PetIdPathRequest
+
+Represents the path parameter used for pet-specific operations.
+
+| Field | Type            | Required | Description |
+|-------|-----------------|----------|-------------|
+| petId | integer (int64) | Yes      | ID of the pet targeted by operations such as get, update with form, delete, and upload image. |
+
+**Validation rules**:
+- `petId`:
+  - Required.
+  - Must be a positive 64-bit integer.
+  - Must reference an existing pet for non-create operations.
+
+---
+
+### OrderIdPathRequest
+
+Represents the path parameter used for order-specific read/delete operations.
+
+| Field   | Type            | Required | Description |
+|---------|-----------------|----------|-------------|
+| orderId | integer (int64) | Yes      | ID of the order to fetch or delete. |
+
+**Validation rules**:
+- `orderId`:
+  - Required and must be a positive 64-bit integer.
+  - For GET:
+    - Description indicates special demo behavior: valid responses for IDs `<= 5` or `> 10`; others may generate exceptions.
+  - For DELETE:
+    - Valid IDs are `< 1000`; others produce API errors.
+
+---
+
+### SecurityCredentials (inferred)
+
+Represents authentication and authorization tokens or keys used by the API.
+
+| Field        | Type   | Required | Description |
+|--------------|--------|----------|-------------|
+| api_key      | string | No       | API key used in the `api_key` header for certain operations (e.g., get inventory, get/delete pet). |
+| oauth_token  | string | No       | OAuth 2.0 token obtained via the `petstore_auth` implicit flow. Used to authorize pet-related operations. |
+
+**Validation rules**:
+- `api_key`:
+  - If provided, must be a non-empty string.
+- `oauth_token`:
+  - Must be a valid bearer token obtained via configured OAuth flow (inferred).
+
+**State transitions**:
+- Tokens expire per `X-Expires-After` in login responses or OAuth server policies.
 
 ---
 
 ## Configuration Files
 
-Below are example configuration snippets (YAML and environment-style) that align with the entities and their usage patterns in the API. These are illustrative for clients/services integrating with the Petstore API.
+Below are example configurations showing how an application might represent and use these entities and related settings.
 
-### Example: Service Configuration for Petstore Client (YAML)
+### Example: Application Configuration (YAML)
 
 ```yaml
 petstore:
-  baseUrl: "https://petstore3.swagger.io/api/v3"
-  # Authentication configuration (inferred, matches security schemes)
+  baseUrl: https://petstore3.swagger.io/api/v3
+
   auth:
-    apiKey:
-      enabled: true
-      headerName: "api_key"
-      value: "YOUR_API_KEY_HERE"
-    oauth2:
-      enabled: false
-      authorizationUrl: "https://petstore3.swagger.io/oauth/authorize"
-      clientId: "your-client-id"         # (inferred)
-      clientSecret: "your-client-secret" # (inferred)
-      scopes:
-        - "write:pets"
-        - "read:pets"
+    # Option 1: API key for operations that support `api_key` security scheme
+    apiKey: "your-api-key-value"
+
+    # Option 2: OAuth2 implicit flow token for `petstore_auth`
+    oauthToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
   defaults:
-    petStatusFilter: "available"  # default for /pet/findByStatus
-    orderPageSize: 50             # (inferred; not in API)
-    userStatusDefault: 1          # maps to active user (inferred)
+    # Default search filters (inferred usage)
+    petStatusFilters:
+      - available
+      - pending
 
-  # Example seed data representing the domain entities
+    # Default order settings
+    order:
+      defaultQuantity: 1
+      autoCompleteOnDelivered: true
 
-  categories:
-    - id: 1
-      name: "Dogs"
-    - id: 2
-      name: "Cats"
+  # Example initial data payloads
+  seedData:
+    categories:
+      - id: 1
+        name: Dogs
+      - id: 2
+        name: Cats
 
-  tags:
-    - id: 1
-      name: "small"
-    - id: 2
-      name: "vaccinated"
+    pets:
+      - id: 10
+        name: doggie
+        category:
+          id: 1
+          name: Dogs
+        photoUrls:
+          - https://cdn.example.com/pets/10-1.jpg
+        tags:
+          - id: 100
+            name: puppy
+        status: available
 
-  pets:
-    - id: 10
-      name: "doggie"
-      category:
-        id: 1
-        name: "Dogs"
-      photoUrls:
-        - "https://cdn.example.com/pets/10-1.jpg"
-      tags:
-        - id: 1
-          name: "small"
-        - id: 2
-          name: "vaccinated"
-      status: "available"
+    users:
+      - id: 10
+        username: theUser
+        firstName: John
+        lastName: James
+        email: john@email.com
+        password: "12345"
+        phone: "12345"
+        userStatus: 1
 
-  users:
-    - id: 10
-      username: "theUser"
-      firstName: "John"
-      lastName: "James"
-      email: "john@email.com"
-      password: "12345"
-      phone: "12345"
-      userStatus: 1
-
-  orders:
-    - id: 1001
-      petId: 10
-      quantity: 1
-      shipDate: "2026-03-11T10:30:00Z"
-      status: "placed"
-      complete: false
-
-  # Example cached inventory snapshot
-  inventory:
-    available: 25
-    pending: 3
-    sold: 12
+    orders:
+      - id: 50
+        petId: 10
+        quantity: 1
+        shipDate: 2026-03-12T10:00:00Z
+        status: placed
+        complete: false
 ```
 
-### Example: Environment-Style Client Configuration (.env)
+### Example: Environment Variables (.env)
 
 ```env
-# Base connectivity
 PETSTORE_BASE_URL=https://petstore3.swagger.io/api/v3
 
-# API key auth
-PETSTORE_API_KEY_ENABLED=true
-PETSTORE_API_KEY_HEADER_NAME=api_key
-PETSTORE_API_KEY_VALUE=YOUR_API_KEY_HERE
+# Security
+PETSTORE_API_KEY=your-api-key-value
+PETSTORE_OAUTH_TOKEN=your-oauth-access-token
 
-# OAuth2 (implicit flow) configuration (if used)
-PETSTORE_OAUTH2_ENABLED=false
-PETSTORE_OAUTH2_AUTH_URL=https://petstore3.swagger.io/oauth/authorize
-PETSTORE_OAUTH2_CLIENT_ID=your-client-id
-PETSTORE_OAUTH2_CLIENT_SECRET=your-client-secret
-PETSTORE_OAUTH2_SCOPES=write:pets,read:pets
+# Default filters (comma-separated)
+PETSTORE_DEFAULT_PET_STATUS=available,pending
 
-# Default filters / behavior
-PETSTORE_DEFAULT_PET_STATUS=available
-PETSTORE_DEFAULT_USER_STATUS=1
-
-# Example: operational limits (inferred)
-PETSTORE_HTTP_TIMEOUT_MS=5000
-PETSTORE_MAX_REQUESTS_PER_MINUTE=50
+# Behavior flags
+PETSTORE_AUTO_COMPLETE_ORDERS=true
+PETSTORE_DEFAULT_ORDER_QUANTITY=1
 ```
 
-### Example: Pet Creation Request (YAML)
+### Example: Pet Creation Payload (JSON)
 
-```yaml
-# Payload for POST /pet
-id: 21
-name: "Snowball"
-category:
-  id: 2
-  name: "Cats"
-photoUrls:
-  - "https://cdn.example.com/pets/21-1.jpg"
-tags:
-  - id: 3
-    name: "white"
-  - id: 4
-    name: "kitten"
-status: "available"
+```json
+{
+  "id": 10,
+  "name": "doggie",
+  "category": {
+    "id": 1,
+    "name": "Dogs"
+  },
+  "photoUrls": [
+    "https://cdn.example.com/pets/doggie-main.jpg"
+  ],
+  "tags": [
+    {
+      "id": 101,
+      "name": "puppy"
+    },
+    {
+      "id": 102,
+      "name": "small"
+    }
+  ],
+  "status": "available"
+}
 ```
 
-### Example: Order Placement Request (YAML)
+### Example: Order Placement Payload (JSON)
 
-```yaml
-# Payload for POST /store/order
-id: 2001
-petId: 21
-quantity: 1
-shipDate: "2026-03-12T09:00:00Z"
-status: "placed"
-complete: false
+```json
+{
+  "petId": 10,
+  "quantity": 1,
+  "shipDate": "2026-03-12T10:00:00Z",
+  "status": "placed",
+  "complete": false
+}
 ```
 
-### Example: User Creation (Single and Bulk) (YAML)
+### Example: User Bulk Creation Payload (JSON)
 
-```yaml
-# Payload for POST /user
-id: 101
-username: "alice"
-firstName: "Alice"
-lastName: "Anderson"
-email: "alice@example.com"
-password: "secureP@ssw0rd"
-phone: "+1-555-0101"
-userStatus: 1
+```json
+[
+  {
+    "id": 10,
+    "username": "theUser",
+    "firstName": "John",
+    "lastName": "James",
+    "email": "john@email.com",
+    "password": "12345",
+    "phone": "12345",
+    "userStatus": 1
+  },
+  {
+    "id": 11,
+    "username": "staffAdmin",
+    "firstName": "Alice",
+    "lastName": "Admin",
+    "email": "alice.admin@example.com",
+    "password": "SecureP@ssw0rd",
+    "phone": "+1-555-0100",
+    "userStatus": 1
+  }
+]
 ```
 
-```yaml
-# Payload for POST /user/createWithList
-- id: 102
-  username: "bob"
-  firstName: "Bob"
-  lastName: "Brown"
-  email: "bob@example.com"
-  password: "pass123"
-  phone: "+1-555-0102"
-  userStatus: 1
-- id: 103
-  username: "carol"
-  firstName: "Carol"
-  lastName: "Clark"
-  email: "carol@example.com"
-  password: "pass456"
-  phone: "+1-555-0103"
-  userStatus: 1
+### Example: Inventory Snapshot Response (JSON)
+
+```json
+{
+  "available": 12,
+  "pending": 3,
+  "sold": 27
+}
+```
+
+### Example: Image Upload Request (curl)
+
+```bash
+curl -X POST "https://petstore3.swagger.io/api/v3/pet/10/uploadImage?additionalMetadata=front+view" \
+  -H "Authorization: Bearer ${PETSTORE_OAUTH_TOKEN}" \
+  -H "Content-Type: application/octet-stream" \
+  --data-binary "@doggie-front.jpg"
+```
+
+### Example: Login Response (JSON + Headers)
+
+```http
+HTTP/1.1 200 OK
+X-Rate-Limit: 1000
+X-Expires-After: 2026-03-12T10:00:00Z
+Content-Type: application/json
+
+"session-token-or-message"
 ```
 
 ---
@@ -490,27 +649,36 @@ userStatus: 1
 ## Relationships
 
 ```text
-Pet ──1:1──▶ Category
-  A pet belongs to at most one category; a category can classify many pets.
+Pet           ──1:1──▶  Category
+  A pet belongs to zero or one category (e.g., "Dogs").
 
-Pet ──1:N──▶ Tag
-  A pet can have multiple tags; each tag can be reused across many pets (many-to-many in practice).
+Pet           ──1:N──▶  Tag
+  A pet can have multiple tags; a tag can be reused across many pets (many-to-many overall, represented via Pet.tags).
 
-Order ──N:1──▶ Pet
-  Each order references a single pet via petId; a pet can be referenced by multiple orders over time.
+Order         ──N:1──▶  Pet
+  Each order references a single pet via petId; a pet can appear in many orders over time.
 
 InventorySnapshot ──aggregates──▶ Pet
-  Inventory counts are derived from the number of pets in each status (available/pending/sold).
+  Inventory snapshot is a derived, aggregated view over all pets, grouped by Pet.status.
 
-User ──authenticates──▶ API Operations
-  A user’s credentials (username/password) are used to obtain a session via /user/login and drive access control.
+UserLoginRequest ──authenticates──▶ User
+  Login uses username/password to authenticate and establish a session for a user.
 
-PetUploadRequest ──N:1──▶ Pet
-  Each image upload is associated with a single pet identified by petId.
+UserBulkCreateRequest ──1:N──▶ User
+  Bulk creation wraps multiple User entities into a single operation.
 
-CreateUsersWithListRequest ──N:1──▶ User
-  Bulk creation request contains multiple User entities to be persisted.
+PetUploadImageRequest ──N:1──▶ Pet
+  Image uploads are associated with a single pet via petId; a pet can have multiple uploaded images.
 
-UserLoginResponse ──describes──▶ User session
-  Encapsulates token-related metadata (rate limit and expiry) for the authenticated user.
+OrderIdPathRequest ──identifies──▶ Order
+  Path-based orderId is the handle for retrieving or deleting a specific order.
+
+PetIdPathRequest ──identifies──▶ Pet
+  Path-based petId is the handle for get, update, delete, and image upload operations.
+
+UserPathRequest ──identifies──▶ User
+  Path-based username is used to get, update, and delete a user.
+
+SecurityCredentials (api_key / oauth_token) ──authorizes──▶ Pet / Order / User operations
+  Security credentials gate access to operations according to the configured security schemes.
 ```

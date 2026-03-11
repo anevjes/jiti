@@ -8,3 +8,6 @@ python-dotenv
 # Document conversion
 mammoth          # DOCX → Markdown
 pdfplumber       # PDF  → text/Markdown
+
+# Azure AI Search
+azure-search-documents

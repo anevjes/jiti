@@ -1,13 +1,13 @@
 {
   "api_name": "SwaggerPetstoreApi1",
-  "description": "Petstore API for managing pets, store orders, inventory, and users.",
+  "description": "Sample Petstore API for managing pets, store orders, inventory, and users.",
   "base_url": "https://petstore3.swagger.io/api/v3",
   "auth_method": "OAuth2",
   "auth_details": {
     "header_name": "Authorization",
     "token_env_var": "PETSTORE_OAUTH_TOKEN"
   },
-  "rate_limit": "unknown",
+  "rate_limit": "50 req/min",
   "docs_url": "https://github.com/swagger-api/swagger-petstore/blob/master/src/main/resources/openapi.yaml",
   "endpoints": [
     {
@@ -15,7 +15,7 @@
       "path": "/pet",
       "method": "PUT",
       "summary": "Update an existing pet.",
-      "description": "Update an existing pet by Id using a full Pet object. The entire pet resource is replaced with the provided representation, so omitted optional fields may be cleared (inferred). The ID in the body must refer to an existing pet; otherwise a 404 is returned. Validation errors on required fields (e.g., name, photoUrls) or invalid enum values for status produce a 422. A 400 indicates an invalid ID or structurally incorrect payload. The operation requires OAuth2 petstore_auth with write:pets and read:pets scopes.",
+      "description": "Update an existing pet by Id. The full Pet object must be provided and will replace the existing record. If the pet ID does not exist, the behavior may depend on implementation (often treated as not found) (inferred).",
       "tags": [
         "pet"
       ],
@@ -25,7 +25,7 @@
         "schema_summary": "Pet object with id, name, category, photoUrls, tags, and status.",
         "example": {
           "id": 10,
-          "name": "doggie-updated",
+          "name": "doggie",
           "category": {
             "id": 1,
             "name": "Dogs"
@@ -44,12 +44,12 @@
       },
       "responses": {
         "200": {
-          "description": "Successful operation; returns the updated Pet resource.",
+          "description": "Successful operation. Returns the updated Pet object.",
           "content_type": "application/json",
-          "schema_summary": "Pet object representing the updated pet.",
+          "schema_summary": "Pet object representing the updated resource.",
           "example": {
             "id": 10,
-            "name": "doggie-updated",
+            "name": "doggie",
             "category": {
               "id": 1,
               "name": "Dogs"
@@ -63,25 +63,25 @@
                 "name": "friendly"
               }
             ],
-            "status": "available"
+            "status": "pending"
           }
         },
         "400": {
-          "description": "Invalid ID supplied or malformed Pet payload.",
+          "description": "Invalid ID supplied or request body failed basic validation (inferred).",
           "example": {
             "error": "Invalid ID supplied",
-            "detail": "id must be a positive integer (int64)."
+            "detail": "Pet id must be a positive integer."
           }
         },
         "404": {
-          "description": "Pet not found with the given ID.",
+          "description": "Pet not found for the provided ID.",
           "example": {
             "error": "Pet not found",
-            "detail": "No pet exists with id=10."
+            "detail": "No pet exists with id=99999."
           }
         },
         "422": {
-          "description": "Validation exception for required fields or enum constraints.",
+          "description": "Validation exception.",
           "example": {
             "error": "Validation exception",
             "detail": "Field 'name' is required."
@@ -91,38 +91,38 @@
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while updating the pet."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X PUT 'https://petstore3.swagger.io/api/v3/pet' \\\n  -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"id\":10,\"name\":\"doggie-updated\",\"category\":{\"id\":1,\"name\":\"Dogs\"},\"photoUrls\":[\"https://example.com/photos/dog1.png\"],\"tags\":[{\"id\":100,\"name\":\"friendly\"}],\"status\":\"available\"}'"
+      "example_curl": "curl -X PUT 'https://petstore3.swagger.io/api/v3/pet' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN' -H 'Content-Type: application/json' -d '{\"id\":10,\"name\":\"doggie\",\"category\":{\"id\":1,\"name\":\"Dogs\"},\"photoUrls\":[\"https://example.com/photos/dog1.png\"],\"tags\":[{\"id\":100,\"name\":\"friendly\"}],\"status\":\"pending\"}'"
     },
     {
       "operation_id": "addPet",
       "path": "/pet",
       "method": "POST",
       "summary": "Add a new pet to the store.",
-      "description": "Create a new pet in the store using a Pet object. The server may generate the pet ID if not provided (inferred). Required fields include name and photoUrls; missing required fields or invalid enum values for status cause a 422. A 400 indicates a structurally invalid payload. On success, the persisted Pet is returned. Requires OAuth2 petstore_auth with write:pets and read:pets scopes.",
+      "description": "Create a new pet in the store. The Pet object should include at least name and photoUrls; id may be supplied by client or generated by the server (inferred).",
       "tags": [
         "pet"
       ],
       "parameters": [],
       "request_body": {
         "content_type": "application/json",
-        "schema_summary": "Pet object with at least name and photoUrls; optional id, category, tags, and status.",
+        "schema_summary": "Pet object with required fields name and photoUrls, plus optional id, category, tags, and status.",
         "example": {
-          "name": "new-doggie",
+          "name": "kitten",
           "category": {
             "id": 2,
-            "name": "Puppies"
+            "name": "Cats"
           },
           "photoUrls": [
-            "https://example.com/photos/new-doggie.png"
+            "https://example.com/photos/kitten1.png"
           ],
           "tags": [
             {
-              "id": 201,
-              "name": "puppy"
+              "id": 200,
+              "name": "cute"
             }
           ],
           "status": "available"
@@ -130,58 +130,58 @@
       },
       "responses": {
         "200": {
-          "description": "Successful operation; returns the newly created Pet.",
+          "description": "Successful operation. Returns the created Pet object, potentially with server-assigned id.",
           "content_type": "application/json",
-          "schema_summary": "Pet object representing the created pet, including its assigned id.",
+          "schema_summary": "Pet object representing the newly created resource.",
           "example": {
-            "id": 12345,
-            "name": "new-doggie",
+            "id": 11,
+            "name": "kitten",
             "category": {
               "id": 2,
-              "name": "Puppies"
+              "name": "Cats"
             },
             "photoUrls": [
-              "https://example.com/photos/new-doggie.png"
+              "https://example.com/photos/kitten1.png"
             ],
             "tags": [
               {
-                "id": 201,
-                "name": "puppy"
+                "id": 200,
+                "name": "cute"
               }
             ],
             "status": "available"
           }
         },
         "400": {
-          "description": "Invalid input; request body is syntactically incorrect or cannot be parsed.",
+          "description": "Invalid input.",
           "example": {
             "error": "Invalid input",
-            "detail": "Request body is not valid JSON."
+            "detail": "Request body is malformed JSON."
           }
         },
         "422": {
-          "description": "Validation exception; missing required fields or invalid values.",
+          "description": "Validation exception.",
           "example": {
             "error": "Validation exception",
-            "detail": "Field 'photoUrls' is required."
+            "detail": "Field 'photoUrls' must contain at least one URL."
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while adding the pet."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X POST 'https://petstore3.swagger.io/api/v3/pet' \\\n  -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"new-doggie\",\"category\":{\"id\":2,\"name\":\"Puppies\"},\"photoUrls\":[\"https://example.com/photos/new-doggie.png\"],\"tags\":[{\"id\":201,\"name\":\"puppy\"}],\"status\":\"available\"}'"
+      "example_curl": "curl -X POST 'https://petstore3.swagger.io/api/v3/pet' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN' -H 'Content-Type: application/json' -d '{\"name\":\"kitten\",\"category\":{\"id\":2,\"name\":\"Cats\"},\"photoUrls\":[\"https://example.com/photos/kitten1.png\"],\"tags\":[{\"id\":200,\"name\":\"cute\"}],\"status\":\"available\"}'"
     },
     {
       "operation_id": "findPetsByStatus",
       "path": "/pet/findByStatus",
       "method": "GET",
       "summary": "Finds pets by status.",
-      "description": "Retrieve a list of pets filtered by their status. Multiple status values can be provided as a comma-separated list in a single status parameter due to explode=true on a string (inferred). Valid status values are available, pending, and sold. If no explicit value is provided, the default is available. A 400 is returned for invalid status values. Requires OAuth2 petstore_auth with write:pets and read:pets scopes.",
+      "description": "Retrieve a list of pets filtered by their status. Multiple status values can be provided as a comma-separated string, e.g. 'available,pending'. If omitted, defaults to 'available'.",
       "tags": [
         "pet"
       ],
@@ -192,7 +192,7 @@
           "type": "string",
           "format": null,
           "required": true,
-          "description": "Status values to filter pets by; can be a single value or a comma-separated list of available, pending, sold.",
+          "description": "Status values that need to be considered for filter. Multiple values can be comma-separated.",
           "default": "available",
           "enum": [
             "available",
@@ -205,7 +205,7 @@
       "request_body": null,
       "responses": {
         "200": {
-          "description": "successful operation; returns an array of Pet objects matching the requested status values.",
+          "description": "Successful operation. Returns an array of Pet objects matching the supplied status filters.",
           "content_type": "application/json",
           "schema_summary": "Array of Pet objects.",
           "example": [
@@ -230,28 +230,28 @@
           ]
         },
         "400": {
-          "description": "Invalid status value; one or more provided statuses are not in the allowed set.",
+          "description": "Invalid status value.",
           "example": {
             "error": "Invalid status value",
-            "detail": "status must be one of: available, pending, sold."
+            "detail": "Status must be one of: available, pending, sold."
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while searching for pets."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X GET 'https://petstore3.swagger.io/api/v3/pet/findByStatus?status=available,pending' \\\n  -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
+      "example_curl": "curl -X GET 'https://petstore3.swagger.io/api/v3/pet/findByStatus?status=available,pending' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
     },
     {
       "operation_id": "findPetsByTags",
       "path": "/pet/findByTags",
       "method": "GET",
       "summary": "Finds pets by tags.",
-      "description": "Retrieve a list of pets filtered by one or more tags. Multiple tags can be provided either as repeated query parameters or as a comma-separated string depending on client behavior; the API expects an array type (inferred). A 400 is returned for invalid tag values or malformed array input. Requires OAuth2 petstore_auth with write:pets and read:pets scopes.",
+      "description": "Retrieve a list of pets filtered by one or more tags. Multiple tags can be provided with comma-separated strings, e.g. 'tag1,tag2,tag3'.",
       "tags": [
         "pet"
       ],
@@ -262,32 +262,35 @@
           "type": "array",
           "format": null,
           "required": true,
-          "description": "Tags used to filter pets. Use tag1, tag2, tag3 for testing.",
+          "description": "Tags to filter by. Multiple tags can be specified using comma separation.",
           "default": null,
           "enum": null,
-          "example": "tag1,tag2"
+          "example": [
+            "tag1",
+            "tag2"
+          ]
         }
       ],
       "request_body": null,
       "responses": {
         "200": {
-          "description": "successful operation; returns an array of Pet objects that have any of the specified tags.",
+          "description": "Successful operation. Returns an array of Pet objects that have at least one of the specified tags (implementation-specific matching, inferred).",
           "content_type": "application/json",
           "schema_summary": "Array of Pet objects.",
           "example": [
             {
               "id": 20,
-              "name": "catty",
+              "name": "parrot",
               "category": {
                 "id": 3,
-                "name": "Cats"
+                "name": "Birds"
               },
               "photoUrls": [
-                "https://example.com/photos/cat1.png"
+                "https://example.com/photos/parrot1.png"
               ],
               "tags": [
                 {
-                  "id": 301,
+                  "id": 300,
                   "name": "tag1"
                 }
               ],
@@ -299,25 +302,25 @@
           "description": "Invalid tag value.",
           "example": {
             "error": "Invalid tag value",
-            "detail": "One or more tags contain invalid characters."
+            "detail": "At least one tag must be provided."
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while searching for pets."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X GET 'https://petstore3.swagger.io/api/v3/pet/findByTags?tags=tag1,tag2' \\\n  -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
+      "example_curl": "curl -X GET 'https://petstore3.swagger.io/api/v3/pet/findByTags?tags=tag1,tag2' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
     },
     {
       "operation_id": "getPetById",
       "path": "/pet/{petId}",
       "method": "GET",
       "summary": "Find pet by ID.",
-      "description": "Retrieve a single pet by its unique identifier. A 400 is returned if the ID is not a valid int64, and 404 if no pet exists with the given ID. This endpoint supports either API key auth via the api_key header or OAuth2 petstore_auth with write:pets and read:pets scopes.",
+      "description": "Returns a single pet for the given petId. If the ID is invalid or the pet does not exist, an error is returned.",
       "tags": [
         "pet"
       ],
@@ -328,7 +331,7 @@
           "type": "integer",
           "format": "int64",
           "required": true,
-          "description": "ID of the pet to return.",
+          "description": "ID of pet to return.",
           "default": null,
           "enum": null,
           "example": 10
@@ -337,9 +340,9 @@
       "request_body": null,
       "responses": {
         "200": {
-          "description": "successful operation; returns the Pet with the specified ID.",
+          "description": "Successful operation. Returns the Pet object.",
           "content_type": "application/json",
-          "schema_summary": "Pet object.",
+          "schema_summary": "Pet object corresponding to the requested id.",
           "example": {
             "id": 10,
             "name": "doggie",
@@ -360,35 +363,35 @@
           }
         },
         "400": {
-          "description": "Invalid ID supplied; not a valid int64.",
+          "description": "Invalid ID supplied.",
           "example": {
             "error": "Invalid ID supplied",
-            "detail": "petId must be a positive integer (int64)."
+            "detail": "petId must be a positive integer."
           }
         },
         "404": {
           "description": "Pet not found.",
           "example": {
             "error": "Pet not found",
-            "detail": "No pet exists with id=10."
+            "detail": "No pet exists with id=99999."
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while retrieving the pet."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X GET 'https://petstore3.swagger.io/api/v3/pet/10' \\\n  -H 'api_key: $PETSTORE_API_KEY'"
+      "example_curl": "curl -X GET 'https://petstore3.swagger.io/api/v3/pet/10' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
     },
     {
       "operation_id": "updatePetWithForm",
       "path": "/pet/{petId}",
       "method": "POST",
-      "summary": "Updates a pet in the store with form data.",
-      "description": "Update an existing pet's basic fields (name and status) using form-like parameters. Only the provided fields are updated (inferred). A 400 is returned for invalid input, such as a non-integer petId or invalid status value. On success, a representation of the updated Pet is returned. Requires OAuth2 petstore_auth with write:pets and read:pets scopes.",
+      "summary": "Update a pet in the store with form data.",
+      "description": "Updates a pet resource based on simple form-like parameters (name and/or status). Only the provided fields are updated; unspecified fields remain unchanged (inferred).",
       "tags": [
         "pet"
       ],
@@ -399,7 +402,7 @@
           "type": "integer",
           "format": "int64",
           "required": true,
-          "description": "ID of the pet that needs to be updated.",
+          "description": "ID of pet that needs to be updated.",
           "default": null,
           "enum": null,
           "example": 10
@@ -413,7 +416,7 @@
           "description": "New name of the pet.",
           "default": null,
           "enum": null,
-          "example": "new-dog-name"
+          "example": "new-doggie-name"
         },
         {
           "name": "status",
@@ -421,25 +424,25 @@
           "type": "string",
           "format": null,
           "required": false,
-          "description": "New status of the pet.",
+          "description": "New status of the pet (available, pending, or sold).",
           "default": null,
           "enum": [
             "available",
             "pending",
             "sold"
           ],
-          "example": "pending"
+          "example": "sold"
         }
       ],
       "request_body": null,
       "responses": {
         "200": {
-          "description": "successful operation; returns the updated Pet.",
+          "description": "Successful operation. Returns the updated Pet object.",
           "content_type": "application/json",
-          "schema_summary": "Pet object with updated fields.",
+          "schema_summary": "Pet object after applying updates.",
           "example": {
             "id": 10,
-            "name": "new-dog-name",
+            "name": "new-doggie-name",
             "category": {
               "id": 1,
               "name": "Dogs"
@@ -453,32 +456,32 @@
                 "name": "friendly"
               }
             ],
-            "status": "pending"
+            "status": "sold"
           }
         },
         "400": {
-          "description": "Invalid input; invalid petId or invalid query parameter values.",
+          "description": "Invalid input.",
           "example": {
             "error": "Invalid input",
-            "detail": "status must be one of: available, pending, sold."
+            "detail": "Status must be one of: available, pending, sold."
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while updating the pet."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X POST 'https://petstore3.swagger.io/api/v3/pet/10?name=new-dog-name&status=pending' \\\n  -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
+      "example_curl": "curl -X POST 'https://petstore3.swagger.io/api/v3/pet/10?name=new-doggie-name&status=sold' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN'"
     },
     {
       "operation_id": "deletePet",
       "path": "/pet/{petId}",
       "method": "DELETE",
       "summary": "Deletes a pet.",
-      "description": "Delete a pet by its ID. If api_key is provided in the header, it may be used for authorization in addition to OAuth2 scopes (inferred). A 400 is returned if the petId is invalid; 200 indicates successful deletion even if the response body is empty. A 404 may be returned via the default error when the pet does not exist (inferred). Requires OAuth2 petstore_auth with write:pets and read:pets scopes.",
+      "description": "Delete a pet identified by petId. Optionally, an api_key header may be supplied for API key–based authorization (inferred).",
       "tags": [
         "pet"
       ],
@@ -489,10 +492,10 @@
           "type": "string",
           "format": null,
           "required": false,
-          "description": "Optional API key for authorization.",
+          "description": "Optional API key for additional authorization.",
           "default": null,
           "enum": null,
-          "example": "your-api-key"
+          "example": "YOUR_API_KEY"
         },
         {
           "name": "petId",
@@ -500,7 +503,7 @@
           "type": "integer",
           "format": "int64",
           "required": true,
-          "description": "ID of the pet to delete.",
+          "description": "Pet id to delete.",
           "default": null,
           "enum": null,
           "example": 10
@@ -509,37 +512,37 @@
       "request_body": null,
       "responses": {
         "200": {
-          "description": "Pet deleted; the resource is no longer available.",
+          "description": "Pet deleted.",
           "content_type": "application/json",
-          "schema_summary": "May return a confirmation object or be empty (inferred).",
+          "schema_summary": "Optional status message about deletion (inferred).",
           "example": {
             "message": "Pet deleted",
             "petId": 10
           }
         },
         "400": {
-          "description": "Invalid pet value; petId is invalid.",
+          "description": "Invalid pet value.",
           "example": {
             "error": "Invalid pet value",
-            "detail": "petId must be a positive integer (int64)."
+            "detail": "petId must be a positive integer."
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while deleting the pet."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X DELETE 'https://petstore3.swagger.io/api/v3/pet/10' \\\n  -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN' \\\n  -H 'api_key: $PETSTORE_API_KEY'"
+      "example_curl": "curl -X DELETE 'https://petstore3.swagger.io/api/v3/pet/10' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN' -H 'api_key: YOUR_API_KEY'"
     },
     {
       "operation_id": "uploadFile",
       "path": "/pet/{petId}/uploadImage",
       "method": "POST",
-      "summary": "Uploads an image.",
-      "description": "Upload an image file associated with a specific pet. The file is sent as raw binary in the request body with content type application/octet-stream. Optional additionalMetadata can be provided as a query parameter. A 400 is returned if no file is uploaded; 404 if the pet does not exist. On success, an ApiResponse containing a status code, type, and message is returned. Requires OAuth2 petstore_auth with write:pets and read:pets scopes.",
+      "summary": "Upload an image.",
+      "description": "Upload an image file associated with the specified petId. The file is sent as raw binary in the request body with content type application/octet-stream. Optional additionalMetadata can be provided as a query parameter.",
       "tags": [
         "pet"
       ],
@@ -550,7 +553,7 @@
           "type": "integer",
           "format": "int64",
           "required": true,
-          "description": "ID of the pet to associate the uploaded image with.",
+          "description": "ID of pet to update with the uploaded image.",
           "default": null,
           "enum": null,
           "example": 10
@@ -561,22 +564,22 @@
           "type": "string",
           "format": null,
           "required": false,
-          "description": "Additional metadata to store with the image.",
+          "description": "Additional metadata describing the image.",
           "default": null,
           "enum": null,
-          "example": "profile photo"
+          "example": "front profile image"
         }
       ],
       "request_body": {
         "content_type": "application/octet-stream",
-        "schema_summary": "Binary image data (e.g., JPEG, PNG) for the pet.",
-        "example": "<binary image bytes>"
+        "schema_summary": "Binary content of the image file.",
+        "example": "<binary image data>"
       },
       "responses": {
         "200": {
-          "description": "successful operation; image accepted and processed.",
+          "description": "Successful operation. Returns an ApiResponse with upload status.",
           "content_type": "application/json",
-          "schema_summary": "ApiResponse with code, type, and message summarizing the upload result.",
+          "schema_summary": "ApiResponse object containing code, type, and message.",
           "example": {
             "code": 200,
             "type": "success",
@@ -584,10 +587,10 @@
           }
         },
         "400": {
-          "description": "No file uploaded or invalid file.",
+          "description": "No file uploaded.",
           "example": {
             "error": "No file uploaded",
-            "detail": "Request body is empty or not binary content."
+            "detail": "Request body is empty."
           }
         },
         "404": {
@@ -601,18 +604,18 @@
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while uploading the image."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X POST 'https://petstore3.swagger.io/api/v3/pet/10/uploadImage?additionalMetadata=profile%20photo' \\\n  -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN' \\\n  -H 'Content-Type: application/octet-stream' \\\n  --data-binary '@/path/to/image.jpg'"
+      "example_curl": "curl -X POST 'https://petstore3.swagger.io/api/v3/pet/10/uploadImage?additionalMetadata=front%20profile%20image' -H 'Authorization: Bearer $PETSTORE_OAUTH_TOKEN' -H 'Content-Type: application/octet-stream' --data-binary '@/path/to/image.jpg'"
     },
     {
       "operation_id": "getInventory",
       "path": "/store/inventory",
       "method": "GET",
       "summary": "Returns pet inventories by status.",
-      "description": "Return a map of inventory counts keyed by pet status. Typical keys include available, pending, and sold (inferred). Each value is an integer quantity. Authentication via the api_key header is required. The response is suitable for dashboards or monitoring inventory levels.",
+      "description": "Returns a map of status codes to quantities. Keys are status values (e.g. available, pending, sold) and values are integer counts of pets in that status.",
       "tags": [
         "store"
       ],
@@ -620,39 +623,40 @@
       "request_body": null,
       "responses": {
         "200": {
-          "description": "successful operation; returns status-to-quantity map.",
+          "description": "Successful operation. Returns an object mapping status strings to integer quantities.",
           "content_type": "application/json",
-          "schema_summary": "Object whose keys are status strings and values are int32 quantities.",
+          "schema_summary": "Object whose keys are status values and values are int32 quantities.",
           "example": {
-            "available": 20,
-            "pending": 3,
-            "sold": 5
+            "available": 15,
+            "pending": 2,
+            "sold": 7
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while retrieving inventory."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X GET 'https://petstore3.swagger.io/api/v3/store/inventory' \\\n  -H 'api_key: $PETSTORE_API_KEY'"
+      "example_curl": "curl -X GET 'https://petstore3.swagger.io/api/v3/store/inventory' -H 'api_key: YOUR_API_KEY'"
     },
     {
       "operation_id": "placeOrder",
       "path": "/store/order",
       "method": "POST",
       "summary": "Place an order for a pet.",
-      "description": "Create a new purchase order for a pet. The Order object may include petId, quantity, shipDate, status, and complete flag. A 400 is returned for malformed input; 422 for validation issues such as invalid status enum or missing required fields (inferred). On success, the created Order is returned.",
+      "description": "Place a new order in the store for a specific pet. The Order object should specify petId, quantity, and optionally status and shipDate.",
       "tags": [
         "store"
       ],
       "parameters": [],
       "request_body": {
         "content_type": "application/json",
-        "schema_summary": "Order object with optional id, petId, quantity, shipDate, status, and complete.",
+        "schema_summary": "Order object with id, petId, quantity, shipDate, status, and complete flag.",
         "example": {
+          "id": 10,
           "petId": 198772,
           "quantity": 2,
           "shipDate": "2026-03-11T10:00:00Z",
@@ -662,48 +666,48 @@
       },
       "responses": {
         "200": {
-          "description": "successful operation; returns the created Order.",
+          "description": "Successful operation. Returns the created Order object.",
           "content_type": "application/json",
-          "schema_summary": "Order object including its assigned id.",
+          "schema_summary": "Order object representing the placed order.",
           "example": {
             "id": 10,
             "petId": 198772,
             "quantity": 2,
             "shipDate": "2026-03-11T10:00:00Z",
-            "status": "placed",
-            "complete": false
+            "status": "approved",
+            "complete": true
           }
         },
         "400": {
-          "description": "Invalid input; malformed JSON or logically invalid order data.",
+          "description": "Invalid input.",
           "example": {
             "error": "Invalid input",
-            "detail": "quantity must be a positive integer."
+            "detail": "Field 'petId' is required."
           }
         },
         "422": {
-          "description": "Validation exception; order does not meet schema constraints.",
+          "description": "Validation exception.",
           "example": {
             "error": "Validation exception",
-            "detail": "status must be one of: placed, approved, delivered."
+            "detail": "Quantity must be greater than 0."
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while placing the order."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X POST 'https://petstore3.swagger.io/api/v3/store/order' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"petId\":198772,\"quantity\":2,\"shipDate\":\"2026-03-11T10:00:00Z\",\"status\":\"placed\",\"complete\":false}'"
+      "example_curl": "curl -X POST 'https://petstore3.swagger.io/api/v3/store/order' -H 'Content-Type: application/json' -d '{\"id\":10,\"petId\":198772,\"quantity\":2,\"shipDate\":\"2026-03-11T10:00:00Z\",\"status\":\"placed\",\"complete\":false}'"
     },
     {
       "operation_id": "getOrderById",
       "path": "/store/order/{orderId}",
       "method": "GET",
       "summary": "Find purchase order by ID.",
-      "description": "Retrieve a purchase order by its ID. For testing, valid responses are typically returned when orderId is an integer <= 5 or > 10; other values may generate exceptions as per the sample implementation. A 400 is returned for invalid IDs (non-integer or out of acceptable range), and 404 when the order is not found.",
+      "description": "Retrieve a purchase order by its ID. For valid responses, try integer IDs with value <= 5 or > 10. Other values will generate exceptions (demo behavior).",
       "tags": [
         "store"
       ],
@@ -714,57 +718,57 @@
           "type": "integer",
           "format": "int64",
           "required": true,
-          "description": "ID of the order to fetch.",
+          "description": "ID of order that needs to be fetched.",
           "default": null,
           "enum": null,
-          "example": 10
+          "example": 5
         }
       ],
       "request_body": null,
       "responses": {
         "200": {
-          "description": "successful operation; returns the Order with the specified ID.",
+          "description": "Successful operation. Returns the Order object.",
           "content_type": "application/json",
-          "schema_summary": "Order object.",
+          "schema_summary": "Order object corresponding to the requested orderId.",
           "example": {
-            "id": 10,
+            "id": 5,
             "petId": 198772,
-            "quantity": 7,
-            "shipDate": "2026-03-11T09:00:00Z",
-            "status": "approved",
+            "quantity": 1,
+            "shipDate": "2026-03-11T12:00:00Z",
+            "status": "delivered",
             "complete": true
           }
         },
         "400": {
-          "description": "Invalid ID supplied; not a valid int64 or outside acceptable demo range.",
+          "description": "Invalid ID supplied.",
           "example": {
             "error": "Invalid ID supplied",
-            "detail": "orderId must be a positive integer (int64)."
+            "detail": "orderId must be an integer."
           }
         },
         "404": {
           "description": "Order not found.",
           "example": {
             "error": "Order not found",
-            "detail": "No order exists with id=10."
+            "detail": "No order exists with id=9999."
           }
         },
         "default": {
-          "description": "Unexpected error.",
+          "description": "Unexpected error (including demo exceptions for disallowed IDs).",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while retrieving the order."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X GET 'https://petstore3.swagger.io/api/v3/store/order/10'"
+      "example_curl": "curl -X GET 'https://petstore3.swagger.io/api/v3/store/order/5'"
     },
     {
       "operation_id": "deleteOrder",
       "path": "/store/order/{orderId}",
       "method": "DELETE",
       "summary": "Delete purchase order by identifier.",
-      "description": "Delete a purchase order by its ID. For demo purposes, valid deletions typically occur for IDs < 1000; larger or non-integer values generate API errors. A 400 is returned for invalid IDs; 404 if the order does not exist. A 200 indicates the order has been deleted.",
+      "description": "Delete a purchase order by its ID. For valid responses, try integer IDs with value < 1000. Anything above 1000 or non-integers will generate API errors (demo behavior).",
       "tags": [
         "store"
       ],
@@ -775,21 +779,21 @@
           "type": "integer",
           "format": "int64",
           "required": true,
-          "description": "ID of the order to delete.",
+          "description": "ID of the order that needs to be deleted.",
           "default": null,
           "enum": null,
-          "example": 55
+          "example": 500
         }
       ],
       "request_body": null,
       "responses": {
         "200": {
-          "description": "order deleted.",
+          "description": "Order deleted.",
           "content_type": "application/json",
-          "schema_summary": "May return a confirmation object or be empty (inferred).",
+          "schema_summary": "Optional status message about deletion (inferred).",
           "example": {
             "message": "Order deleted",
-            "orderId": 55
+            "orderId": 500
           }
         },
         "400": {
@@ -803,25 +807,25 @@
           "description": "Order not found.",
           "example": {
             "error": "Order not found",
-            "detail": "No order exists with id=55."
+            "detail": "No order exists with id=500."
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while deleting the order."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X DELETE 'https://petstore3.swagger.io/api/v3/store/order/55'"
+      "example_curl": "curl -X DELETE 'https://petstore3.swagger.io/api/v3/store/order/500'"
     },
     {
       "operation_id": "createUser",
       "path": "/user",
       "method": "POST",
       "summary": "Create user.",
-      "description": "Create a new user. This operation is intended to be performed by an already authenticated user with sufficient privileges (inferred). The request body must contain a User object. On success, the created User representation is returned. Validation or persistence errors are returned via the default error response (inferred).",
+      "description": "Create a new user. This can only be done by a logged-in user according to the description, but no explicit security scheme is attached in the spec for this endpoint (inferred).",
       "tags": [
         "user"
       ],
@@ -842,9 +846,9 @@
       },
       "responses": {
         "200": {
-          "description": "successful operation; returns the created User.",
+          "description": "Successful operation. Returns the created User object.",
           "content_type": "application/json",
-          "schema_summary": "User object.",
+          "schema_summary": "User object representing the created user.",
           "example": {
             "id": 10,
             "username": "theUser",
@@ -860,61 +864,61 @@
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while creating the user."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X POST 'https://petstore3.swagger.io/api/v3/user' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"id\":10,\"username\":\"theUser\",\"firstName\":\"John\",\"lastName\":\"James\",\"email\":\"john@email.com\",\"password\":\"12345\",\"phone\":\"12345\",\"userStatus\":1}'"
+      "example_curl": "curl -X POST 'https://petstore3.swagger.io/api/v3/user' -H 'Content-Type: application/json' -d '{\"id\":10,\"username\":\"theUser\",\"firstName\":\"John\",\"lastName\":\"James\",\"email\":\"john@email.com\",\"password\":\"12345\",\"phone\":\"12345\",\"userStatus\":1}'"
     },
     {
       "operation_id": "createUsersWithListInput",
       "path": "/user/createWithList",
       "method": "POST",
       "summary": "Creates list of users with given input array.",
-      "description": "Bulk create users from an array of User objects. On success, a representation of a single User (typically the last or a summary user in this demo API) is returned. The default response handles any unexpected errors, including partial failures (inferred).",
+      "description": "Create multiple users in a single request by providing an array of User objects.",
       "tags": [
         "user"
       ],
       "parameters": [],
       "request_body": {
         "content_type": "application/json",
-        "schema_summary": "Array of User objects to be created.",
+        "schema_summary": "Array of User objects.",
         "example": [
           {
             "id": 11,
             "username": "user1",
             "firstName": "Alice",
-            "lastName": "Doe",
+            "lastName": "Smith",
             "email": "alice@example.com",
-            "password": "p@ssw0rd",
-            "phone": "111-111-1111",
+            "password": "password1",
+            "phone": "555-0001",
             "userStatus": 1
           },
           {
             "id": 12,
             "username": "user2",
             "firstName": "Bob",
-            "lastName": "Smith",
+            "lastName": "Jones",
             "email": "bob@example.com",
-            "password": "p@ssw0rd2",
-            "phone": "222-222-2222",
+            "password": "password2",
+            "phone": "555-0002",
             "userStatus": 1
           }
         ]
       },
       "responses": {
         "200": {
-          "description": "Successful operation; returns a User object (demo behavior).",
+          "description": "Successful operation. Returns a representative User object (implementation-specific which one) (inferred).",
           "content_type": "application/json",
-          "schema_summary": "User object, often echoing one of the created users (demo behavior, inferred).",
+          "schema_summary": "User object, often one of the created users (inferred).",
           "example": {
             "id": 11,
             "username": "user1",
             "firstName": "Alice",
-            "lastName": "Doe",
+            "lastName": "Smith",
             "email": "alice@example.com",
-            "password": "p@ssw0rd",
-            "phone": "111-111-1111",
+            "password": "password1",
+            "phone": "555-0001",
             "userStatus": 1
           }
         },
@@ -922,18 +926,18 @@
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while creating users."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X POST 'https://petstore3.swagger.io/api/v3/user/createWithList' \\\n  -H 'Content-Type: application/json' \\\n  -d '[{\"id\":11,\"username\":\"user1\",\"firstName\":\"Alice\",\"lastName\":\"Doe\",\"email\":\"alice@example.com\",\"password\":\"p@ssw0rd\",\"phone\":\"111-111-1111\",\"userStatus\":1},{\"id\":12,\"username\":\"user2\",\"firstName\":\"Bob\",\"lastName\":\"Smith\",\"email\":\"bob@example.com\",\"password\":\"p@ssw0rd2\",\"phone\":\"222-222-2222\",\"userStatus\":1}]'"
+      "example_curl": "curl -X POST 'https://petstore3.swagger.io/api/v3/user/createWithList' -H 'Content-Type: application/json' -d '[{\"id\":11,\"username\":\"user1\",\"firstName\":\"Alice\",\"lastName\":\"Smith\",\"email\":\"alice@example.com\",\"password\":\"password1\",\"phone\":\"555-0001\",\"userStatus\":1},{\"id\":12,\"username\":\"user2\",\"firstName\":\"Bob\",\"lastName\":\"Jones\",\"email\":\"bob@example.com\",\"password\":\"password2\",\"phone\":\"555-0002\",\"userStatus\":1}]'"
     },
     {
       "operation_id": "loginUser",
       "path": "/user/login",
       "method": "GET",
       "summary": "Logs user into the system.",
-      "description": "Log a user into the system using username and password query parameters. On success, returns a token string or a session identifier (demo behavior) along with rate-limiting headers X-Rate-Limit and X-Expires-After. A 400 is returned for invalid credentials or missing parameters.",
+      "description": "Log a user into the system by providing username and password as query parameters. Returns a session token or message as a string and includes rate limit and expiry headers.",
       "tags": [
         "user"
       ],
@@ -944,7 +948,7 @@
           "type": "string",
           "format": null,
           "required": false,
-          "description": "The username for login.",
+          "description": "The user name for login.",
           "default": null,
           "enum": null,
           "example": "theUser"
@@ -964,23 +968,23 @@
       "request_body": null,
       "responses": {
         "200": {
-          "description": "successful operation; returns a token or session identifier as a string.",
+          "description": "Successful operation. Returns a string message or token. Response headers indicate rate limit and token expiry.",
           "content_type": "application/json",
-          "schema_summary": "String token, with X-Rate-Limit and X-Expires-After headers indicating quota and expiry.",
-          "example": "user-session-token-abc123"
+          "schema_summary": "String value such as a session token or login confirmation.",
+          "example": "logged in user session: 1234567890"
         },
         "400": {
           "description": "Invalid username/password supplied.",
           "example": {
             "error": "Invalid username/password supplied",
-            "detail": "Username or password is incorrect."
+            "detail": "Credentials are incorrect."
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while logging in."
+            "detail": "An unexpected error occurred."
           }
         }
       },
@@ -991,7 +995,7 @@
       "path": "/user/logout",
       "method": "GET",
       "summary": "Logs out current logged in user session.",
-      "description": "Log out the current user, invalidating their session or token (demo behavior). Typically requires that the request is authenticated, but the specific mechanism is implementation-dependent (inferred). A 200 indicates the session was successfully terminated.",
+      "description": "Log the current user out of the system. Typically invalidates the user session or token (inferred).",
       "tags": [
         "user"
       ],
@@ -999,9 +1003,9 @@
       "request_body": null,
       "responses": {
         "200": {
-          "description": "successful operation; user is logged out.",
+          "description": "Successful operation.",
           "content_type": "application/json",
-          "schema_summary": "May return a confirmation message (inferred).",
+          "schema_summary": "Optional status message confirming logout (inferred).",
           "example": {
             "message": "User logged out"
           }
@@ -1010,7 +1014,7 @@
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while logging out."
+            "detail": "An unexpected error occurred."
           }
         }
       },
@@ -1021,7 +1025,7 @@
       "path": "/user/{username}",
       "method": "GET",
       "summary": "Get user by user name.",
-      "description": "Retrieve user details for the given username. For testing, username user1 is commonly available. A 400 is returned for invalid usernames (e.g., empty or malformed), and 404 if the user is not found.",
+      "description": "Retrieve a user detail based on username.",
       "tags": [
         "user"
       ],
@@ -1032,7 +1036,7 @@
           "type": "string",
           "format": null,
           "required": true,
-          "description": "The username to fetch. Use user1 for testing.",
+          "description": "The name that needs to be fetched. Use user1 for testing.",
           "default": null,
           "enum": null,
           "example": "user1"
@@ -1041,17 +1045,17 @@
       "request_body": null,
       "responses": {
         "200": {
-          "description": "successful operation; returns the User.",
+          "description": "Successful operation. Returns the User object.",
           "content_type": "application/json",
-          "schema_summary": "User object.",
+          "schema_summary": "User object corresponding to the requested username.",
           "example": {
-            "id": 20,
+            "id": 11,
             "username": "user1",
             "firstName": "Alice",
-            "lastName": "Doe",
-            "email": "user1@example.com",
-            "password": "****",
-            "phone": "333-333-3333",
+            "lastName": "Smith",
+            "email": "alice@example.com",
+            "password": "password1",
+            "phone": "555-0001",
             "userStatus": 1
           }
         },
@@ -1059,21 +1063,21 @@
           "description": "Invalid username supplied.",
           "example": {
             "error": "Invalid username supplied",
-            "detail": "username must be a non-empty string."
+            "detail": "Username cannot be empty."
           }
         },
         "404": {
           "description": "User not found.",
           "example": {
             "error": "User not found",
-            "detail": "No user exists with username 'user1'."
+            "detail": "No user exists with username=user1."
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while retrieving the user."
+            "detail": "An unexpected error occurred."
           }
         }
       },
@@ -1084,7 +1088,7 @@
       "path": "/user/{username}",
       "method": "PUT",
       "summary": "Update user resource.",
-      "description": "Update an existing user identified by username. The request body contains a full User object representing the new state. This operation is restricted to logged-in users with the appropriate permissions (inferred). A 400 indicates a bad request (e.g., invalid body); 404 indicates that the user does not exist.",
+      "description": "Update an existing user identified by username. This can only be done by the logged-in user. The request body contains the new User representation.",
       "tags": [
         "user"
       ],
@@ -1095,7 +1099,7 @@
           "type": "string",
           "format": null,
           "required": true,
-          "description": "Username of the user to update.",
+          "description": "Name of the user that needs to be updated.",
           "default": null,
           "enum": null,
           "example": "user1"
@@ -1103,58 +1107,57 @@
       ],
       "request_body": {
         "content_type": "application/json",
-        "schema_summary": "User object with updated fields.",
+        "schema_summary": "User object with updated details.",
         "example": {
-          "id": 20,
+          "id": 11,
           "username": "user1",
           "firstName": "AliceUpdated",
-          "lastName": "Doe",
-          "email": "user1.updated@example.com",
-          "password": "newPassword123",
-          "phone": "333-333-3333",
+          "lastName": "Smith",
+          "email": "alice.updated@example.com",
+          "password": "newpassword",
+          "phone": "555-0003",
           "userStatus": 1
         }
       },
       "responses": {
         "200": {
-          "description": "successful operation; user updated.",
+          "description": "Successful operation.",
           "content_type": "application/json",
-          "schema_summary": "May return no body or a confirmation message (inferred).",
+          "schema_summary": "Optional status message or empty body (inferred).",
           "example": {
-            "message": "User updated",
-            "username": "user1"
+            "message": "User updated"
           }
         },
         "400": {
-          "description": "bad request; invalid payload or parameters.",
+          "description": "Bad request.",
           "example": {
             "error": "bad request",
-            "detail": "Request body is not valid JSON."
+            "detail": "Request body is invalid."
           }
         },
         "404": {
-          "description": "user not found.",
+          "description": "User not found.",
           "example": {
             "error": "user not found",
-            "detail": "No user exists with username 'user1'."
+            "detail": "No user exists with username=user1."
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while updating the user."
+            "detail": "An unexpected error occurred."
           }
         }
       },
-      "example_curl": "curl -X PUT 'https://petstore3.swagger.io/api/v3/user/user1' \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"id\":20,\"username\":\"user1\",\"firstName\":\"AliceUpdated\",\"lastName\":\"Doe\",\"email\":\"user1.updated@example.com\",\"password\":\"newPassword123\",\"phone\":\"333-333-3333\",\"userStatus\":1}'"
+      "example_curl": "curl -X PUT 'https://petstore3.swagger.io/api/v3/user/user1' -H 'Content-Type: application/json' -d '{\"id\":11,\"username\":\"user1\",\"firstName\":\"AliceUpdated\",\"lastName\":\"Smith\",\"email\":\"alice.updated@example.com\",\"password\":\"newpassword\",\"phone\":\"555-0003\",\"userStatus\":1}'"
     },
     {
       "operation_id": "deleteUser",
       "path": "/user/{username}",
       "method": "DELETE",
       "summary": "Delete user resource.",
-      "description": "Delete a user by username. This can only be done by a logged-in user with sufficient privileges (inferred). A 400 is returned for invalid usernames, and 404 if the user does not exist. A 200 indicates successful deletion.",
+      "description": "Delete a user identified by username. This can only be done by the logged-in user.",
       "tags": [
         "user"
       ],
@@ -1165,7 +1168,7 @@
           "type": "string",
           "format": null,
           "required": true,
-          "description": "The username of the user to delete.",
+          "description": "The name of the user that needs to be deleted.",
           "default": null,
           "enum": null,
           "example": "user1"
@@ -1176,7 +1179,7 @@
         "200": {
           "description": "User deleted.",
           "content_type": "application/json",
-          "schema_summary": "May return a confirmation message (inferred).",
+          "schema_summary": "Optional status message about deletion (inferred).",
           "example": {
             "message": "User deleted",
             "username": "user1"
@@ -1186,21 +1189,21 @@
           "description": "Invalid username supplied.",
           "example": {
             "error": "Invalid username supplied",
-            "detail": "username must be a non-empty string."
+            "detail": "Username cannot be empty."
           }
         },
         "404": {
           "description": "User not found.",
           "example": {
             "error": "User not found",
-            "detail": "No user exists with username 'user1'."
+            "detail": "No user exists with username=user1."
           }
         },
         "default": {
           "description": "Unexpected error.",
           "example": {
             "error": "Unexpected error",
-            "detail": "An unexpected error occurred while deleting the user."
+            "detail": "An unexpected error occurred."
           }
         }
       },
