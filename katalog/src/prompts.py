@@ -11,6 +11,9 @@ Each public function returns ``(system_prompt, user_prompt)`` ready for
 """
 
 from datetime import date
+import logging
+
+log = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. Data‑Model generation
@@ -138,6 +141,7 @@ RULES:
   with "(inferred)" in the description.
 - Include realistic example request/response pairs.
 - Output **only** the Markdown document — no preamble, no trailing commentary.
+- Do not truncate the yaml/json input.
 """
 
 def api_contract_prompts(
@@ -152,6 +156,8 @@ def api_contract_prompts(
         f"## Swagger / OpenAPI contract\n\n```\n{swagger_text}\n```\n\n"
         f"## Supplementary documentation\n\n{docs_markdown}\n"
     )
+    log.info("Prepared API Contract prompts for %s.", api_name)
+    log.info(user)
     return _API_CONTRACT_SYSTEM, user
 
 

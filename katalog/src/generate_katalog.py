@@ -132,6 +132,7 @@ def process_api(
     # 4. Generate SDK Proxy API Contract
     log.info("[4/5] Generating SDK Proxy API Contract …")
     sys_ac, usr_ac = api_contract_prompts(api_name, swagger_text, docs_md)
+    
     if dry_run:
         log.info("  [dry-run] Would call Azure OpenAI for API Contract")
         _write_output(api_dir, "api_contract_prompt_PREVIEW.md", f"# SYSTEM\n\n{sys_ac}\n\n# USER\n\n{usr_ac}")
